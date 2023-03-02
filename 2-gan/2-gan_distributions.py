@@ -81,7 +81,7 @@ class gan():
     def _generator_loss(self, fake_output):
         """ Generator loss: The generator's loss quantifies how well it was able to trick the discriminator. 
         Intuitively, if the generator is performing well, the discriminator will classify the fake distributions 
-        as real (or 1). Here, compare the discriminators decisions on the generated distributions to an array of 1s."""
+        as real (or 1). Here, compare the discriminators decisions on the generated distributions to 1."""
 
         fake_loss = (fake_output-1)**2
         #print('GENERATOR LOSS (fake output: ' + str(fake_output.numpy()) + '): fake loss: '+str(fake_loss.numpy()))
