@@ -149,7 +149,7 @@ input_shape_gen = num_samples
 output_shape_gen = num_samples
 num_layers = 5
 num_neurons_per_layer = 30
-use_bias = False
+use_bias = True
 
 mean = 50
 stddev = 10
