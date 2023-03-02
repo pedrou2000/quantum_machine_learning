@@ -99,12 +99,3 @@ generated_values = generator.predict(noise)
 plt.hist(generate_data(mean, stddev, n_samples=12800,n_dim=DATA_DIM),bins=100, color='blue')
 plt.hist(generated_values,bins=100, color='red')
 plt.show()
-
-"""
-
-true_gaussian = [np.random.randn() for x in range(10000)]
-print('1st order moment - ', 'True : ', scipy.stats.moment(true_gaussian, 1) , ', GAN :', scipy.stats.moment(generated_values,1))
-print('2nd order moment - ', 'True : ', scipy.stats.moment(true_gaussian, 2) , ', GAN :', scipy.stats.moment(generated_values,2))
-print('3rd order moment - ', 'True : ', scipy.stats.moment(true_gaussian, 3) , ', GAN :', scipy.stats.moment(generated_values,3))
-print('4th order moment - ', 'True : ', scipy.stats.moment(true_gaussian, 4) , ', GAN :', scipy.stats.moment(generated_values,4))
-"""
