@@ -141,8 +141,8 @@ class gan():
 
 # Initialize GAN Hyperparameters and Data
 
-training_sets = 30
-dimension = 30
+training_sets = 10
+dimension = 10
 num_samples = 100
 
 input_shape_gen = num_samples
