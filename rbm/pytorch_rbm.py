@@ -4,14 +4,12 @@ import torch
 import tensorflow as tf
 import matplotlib.pyplot as plt
 
-def plot_distributions(blue_dist, red_dist, bins = 10):
-    plt.hist(x=blue_dist, bins=bins, color='blue', alpha=0.7, rwidth=0.85)
-    plt.hist(x=red_dist, bins=bins, color='red', alpha=0.7, rwidth=0.85)
-    plt.show()
+import sys, os 
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'utils'))
+from utils import plot_distributions
 
 
 class RBM():
-
     def __init__(self, num_visible, num_hidden, k, learning_rate=1e-3, momentum_coefficient=0.5, weight_decay=1e-4, use_cuda=True):
         self.num_visible = num_visible
         self.num_hidden = num_hidden
@@ -117,15 +115,25 @@ class RBM():
 
 # Hyperparameters and Data
 num_visible_layers = 100
-num_hidden_layers = 100
+num_hidden_layers = 20
 k = 50
-epochs = 50
-batches = 100
+epochs = 1000
+batches = 10
 
 input_data = torch.randn(batches, num_hidden_layers, num_visible_layers)
 noise = torch.rand(num_visible_layers)
 
 iterations = 0
+
+# Plot Parameters
+n_bins = 10
+
+color_generated_distribution = "red"
+color_real_distribution = "black"
+
+results_path = 'rbm/results/'
+images_path = results_path + 'images/'
+gif_file = results_path + 'rbm.gif'
 
 
 # Create, Train and Sample from RBM
@@ -137,4 +145,13 @@ generated_distribution = rbm.sample(iterations, noise)
 # Show the results
 print(generated_distribution.numpy())
 print(input_data[0][0].numpy())
-plot_distributions(blue_dist=generated_distribution.numpy(), red_dist=input_data[0][0].numpy(), bins = 10)
+
+plot_distributions(
+    dist_1=generated_distribution.numpy(), 
+    dist_2=input_data[0][0].numpy(), 
+    color_dist_1 = color_generated_distribution, 
+    color_dist_2 = color_real_distribution,
+    images_path = images_path,
+    epoch=8, 
+    n_bins = 10,
+)
