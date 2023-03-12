@@ -88,6 +88,13 @@ class gan():
         return fake_loss
 
 
+    def set_plot_config(self, n_bins, color_generated_distribution, color_real_distribution, images_path, gif_path,):
+        self.n_bins = n_bins 
+        self.color_generated_distribution = color_generated_distribution
+        self.color_real_distribution = color_real_distribution
+        self.images_path = images_path
+        self.gif_path = gif_path
+
     def _show_results(self, model, epoch, test_input, dataset):
         predictions = model(test_input, training=False)
 
@@ -95,11 +102,11 @@ class gan():
         plot_distributions(
             dist_1=[predictions[0]], 
             dist_2=dataset.numpy()[0][0], 
-            color_dist_1 = color_generated_distribution, 
-            color_dist_2 = color_real_distribution,
-            images_path = images_path,
+            color_dist_1 = self.color_generated_distribution, 
+            color_dist_2 = self.color_real_distribution,
+            images_path = self.images_path,
             epoch=epoch, 
-            n_bins = 10,
+            n_bins = self.n_bins,
         )
 
 
@@ -163,62 +170,39 @@ class gan():
         self.generator_optimizer.apply_gradients(zip(gradients_of_generator, self.generator.trainable_variables))
         self.discriminator_optimizer.apply_gradients(zip(gradients_of_discriminator, self.discriminator.trainable_variables))
 
-    def train(self, dataset, seed, epochs, show_every_n_epochs):
+    def train(self, dataset, seed, epochs, show_every_n_epochs, batched=False):
         """ The training loop begins with generator receiving a random seed as input. That seed is used to 
         produce a distribution. The discriminator is then used to classify real distributions (drawn from the training 
         set) and fake distributions (produced by the generator). The loss is calculated for each of these models, 
         and the gradients are used to update the generator and discriminator. """
-        print()
-        print('TRAINING:')
 
-        for epoch in range(epochs):
-            if epoch % 100 == 0:
-                print(epoch)
-            start = time.time()
+        try:
+            self.gif_path
+            print()
+            print('TRAINING:')
 
-            for distribution in dataset:
-                self._train_step(distribution)
+            for epoch in range(epochs):
+                if epoch % 100 == 0:
+                    print(epoch)
+                start = time.time()
+
+                if batched:
+                    for distribution in dataset:
+                        self._train_step_discriminator(distribution)
+                        self._train_step_generator()
+                else:
+                    for distribution in dataset:
+                        self._train_step(distribution)
+                
+                
+                if (epoch+1) % show_every_n_epochs == 0:
+                    self._show_results(self.generator, epoch + 1, seed, dataset)
+                    print ('Time for epoch {} is {} sec'.format(epoch + 1, time.time()-start))
             
-            if (epoch+1) % show_every_n_epochs == 0:
-                self._show_results(self.generator, epoch + 1, seed, dataset)
-                print ('Time for epoch {} is {} sec'.format(epoch + 1, time.time()-start))
-        create_gif()
-
-    def train_batched(self, dataset, seed, epochs, show_every_n_epochs):
-        """ The training loop begins with generator receiving a random seed as input. That seed is used to 
-        produce a distribution. The discriminator is then used to classify real distributions (drawn from the training 
-        set) and fake distributions (produced by the generator). The loss is calculated for each of these models, 
-        and the gradients are used to update the generator and discriminator. """
-        print()
-        print('TRAINING::')
-
-        for epoch in range(epochs):
-            start = time.time()
-            if epoch % 100 == 0:
-                print(epoch)
-
-            for distribution in dataset:
-                self._train_step_discriminator(distribution)
-                self._train_step_generator()
-            
-            if (epoch+1) % show_every_n_epochs == 0:
-                self._show_results(self.generator, epoch + 1, seed, dataset)
-                print ('Time for epoch {} is {} sec'.format(epoch + 1, time.time()-start))
-        create_gif()
-
-
-
-
-
-
-n_bins = 10
-
-color_generated_distribution = "red"
-color_real_distribution = "black"
-
-results_path = '2-gan/results/'
-images_path = results_path + 'images/'
-gif_file = results_path + 'gan.gif'
+            create_gif(images_path=self.images_path, gif_file=self.gif_path)
+        
+        except:
+            print('Set Plot Result Parameters before training with set_plot_config.')
 
 
 
@@ -241,9 +225,21 @@ samples_train = tf.random.normal([training_sets, dimension, num_samples], mean=m
 
 seed = tf.random.uniform([dimension, input_shape_gen], minval=0, maxval=1)
 
-epochs = 50
-show_n_pictures = 50
+epochs = 10
+show_n_pictures = 10
 show_every_n_epochs = epochs//show_n_pictures
+
+
+
+# Results Plot Configuration
+n_bins = 10
+
+color_generated_distribution = "red"
+color_real_distribution = "black"
+
+results_path = '2-gan/results/'
+images_path = results_path + 'images/'
+gif_path = results_path + 'gan.gif'
 
 
 
@@ -259,6 +255,9 @@ my_gan = gan(
     num_neurons_per_layer = num_neurons_per_layer,
     use_bias=use_bias,
 )
+my_gan.set_plot_config(n_bins=n_bins, color_generated_distribution=color_generated_distribution, 
+                       color_real_distribution=color_real_distribution, images_path=images_path,
+                       gif_path= gif_path,)
 
 my_gan.train(samples_train, seed, epochs, show_every_n_epochs)
-#my_gan.train_batched(samples_train, seed, epochs, show_every_n_epochs)
+#my_gan.train(samples_train, seed, epochs, show_every_n_epochs, batched = True)

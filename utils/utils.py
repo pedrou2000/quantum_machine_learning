@@ -9,7 +9,7 @@ def plot_distributions(dist_1, dist_2, color_dist_1, color_dist_2, images_path, 
     plt.savefig(images_path + 'image_at_epoch_{:04d}.png'.format(epoch))
     #plt.show()
 
-def create_gif(images_path = '2-gan/results/images/', gif_file = '2-gan/results/gan.gif'):
+def create_gif(images_path, gif_file):
     with imageio.get_writer(gif_file, mode='I') as writer:
         filenames = glob.glob(images_path + 'image*.png')
         filenames = sorted(filenames)
