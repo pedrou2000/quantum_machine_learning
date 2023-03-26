@@ -63,6 +63,11 @@ class GAN:
     def train(self):
         real_data = self.target_distribution()
         real_labels = np.ones((self.batch_size, 1))
+        save_every_n = 100
+
+        d_loss_real_total = 0
+        d_loss_fake_total = 0
+        g_loss_total = 0
 
         for epoch in range(self.epochs):
             # Train discriminator on real data
@@ -78,12 +83,24 @@ class GAN:
             noise = self.noise_distribution()
             g_loss = self.gan.train_on_batch(noise, real_labels)
 
+            d_loss_real_total += d_loss_real
+            d_loss_fake_total += d_loss_fake
+            g_loss_total += g_loss
+
             # Save losses
-            if epoch % 100 == 0:
-                print(f"Epoch {epoch}, D_loss_real: {d_loss_real}, D_loss_fake: {d_loss_fake}, G_loss: {g_loss}")
-                self.d_losses_real.append(d_loss_real)
-                self.d_losses_fake.append(d_loss_fake)
-                self.g_losses.append(g_loss)
+            if epoch % save_every_n == 0:
+                d_loss_real_total /= save_every_n
+                d_loss_fake_total /= save_every_n
+                g_loss_total /= save_every_n
+                print(f"Epoch {epoch}, D_loss_real: {d_loss_real_total}, D_loss_fake: {d_loss_fake_total}, G_loss: {g_loss_total}")
+                self.d_losses_real.append(d_loss_real_total)
+                self.d_losses_fake.append(d_loss_fake_total)
+                self.g_losses.append(g_loss_total)
+
+                d_loss_real_total = 0
+                d_loss_fake_total = 0
+                g_loss_total = 0
+
     
     def plot_losses(self, folder_path):
         plt.plot(self.d_losses_real, label='D_loss_real')
@@ -149,15 +166,15 @@ class GAN:
 
 if __name__ == "__main__":
     # Parameters
-    epochs=1000
+    epochs=10000
     latent_dim=100
-    batch_size=128
+    batch_size=1280
     noise_low=-1
     noise_high=1
     results_path='results/gan/1d/setwise/'
     """
 
-    # Normal distributionss
+    # Normal distributions
     means = [0, 5, 10]
     sds = [1, 1.5, 2, 3]
 

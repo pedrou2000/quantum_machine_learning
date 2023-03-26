@@ -165,6 +165,8 @@ class GAN2D:
         self.plot_losses(folder_path)
         self.save_parameters_to_json(folder_path)
 
+
+
 if __name__ == "__main__":
     # Parameters
     epochs=10000

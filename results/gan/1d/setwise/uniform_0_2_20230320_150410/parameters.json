@@ -1,0 +1,11 @@
+{
+    "timestamp": "2023-03-20 15:04:11",
+    "latent_dim": 100,
+    "epochs": 10000,
+    "batch_size": 1280,
+    "target_mean": 0,
+    "target_sd": 2,
+    "target_normal": false,
+    "noise_low": -1,
+    "noise_high": 1
+}

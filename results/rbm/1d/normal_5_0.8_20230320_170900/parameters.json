@@ -1,0 +1,13 @@
+{
+    "timestamp": "2023-03-20 17:09:04",
+    "n_visible": 1,
+    "n_hidden": 100,
+    "learning_rate": 0.01,
+    "num_epochs": 1000,
+    "batch_size": 128,
+    "k": 3,
+    "target_mean": 5,
+    "target_sd": 0.8,
+    "target_normal": true,
+    "results_path": "results/rbm/1d/"
+}

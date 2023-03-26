@@ -8,7 +8,8 @@ import time
 import json
 
 class GAN:
-    def __init__(self, latent_dim, epochs, batch_size, target_mean, target_sd, target_normal, noise_low, noise_high, results_path):
+    def __init__(self, latent_dim, epochs, batch_size, target_mean, target_sd, target_normal, noise_low, 
+                 noise_high, results_path, layers_gen, layers_disc):
         self.latent_dim = latent_dim
         self.epochs = epochs
         self.batch_size = batch_size
@@ -18,6 +19,8 @@ class GAN:
         self.noise_low = noise_low
         self.noise_high = noise_high
         self.results_path = results_path
+        self.layers_gen = layers_gen
+        self.layers_disc = layers_disc
         self.generator = self.create_generator()
         self.discriminator = self.create_discriminator()
         self.gan = self.create_gan()
@@ -37,16 +40,20 @@ class GAN:
 
     def create_generator(self):
         model = keras.Sequential()
-        model.add(layers.Dense(64, activation='relu', input_dim=self.latent_dim))
-        model.add(layers.Dense(32, activation='relu'))
-        model.add(layers.Dense(1, activation='linear'))
+        
+        model.add(layers.Dense(self.layers_gen[0], activation='relu', input_dim=self.latent_dim))
+        for n_layer in self.layers_gen[1:-1]:
+            model.add(layers.Dense(n_layer, activation='relu'))
+        model.add(layers.Dense(self.layers_gen[len(self.layers_gen)-1], activation='linear'))
         return model
 
     def create_discriminator(self):
         model = keras.Sequential()
-        model.add(layers.Dense(64, activation='relu', input_shape=(1,)))
-        model.add(layers.Dense(32, activation='relu'))
-        model.add(layers.Dense(1, activation='sigmoid'))
+
+        model.add(layers.Dense(self.layers_disc[0], activation='relu', input_shape=(1,)))
+        for n_layer in self.layers_disc[1:-1]:
+            model.add(layers.Dense(n_layer, activation='relu'))
+        model.add(layers.Dense(self.layers_disc[len(self.layers_disc)-1], activation='sigmoid'))
         return model
 
     def create_gan(self):
@@ -63,6 +70,11 @@ class GAN:
     def train(self):
         real_data = self.target_distribution()
         real_labels = np.ones((self.batch_size, 1))
+        save_every_n = 100
+
+        d_loss_real_total = 0
+        d_loss_fake_total = 0
+        g_loss_total = 0
 
         for epoch in range(self.epochs):
             # Train discriminator on real data
@@ -71,7 +83,6 @@ class GAN:
             # Train discriminator on generated data
             noise = self.noise_distribution()
             generated_data = self.generator.predict(noise, verbose=0)
-            print(len(generated_data))
             fake_labels = np.zeros((self.batch_size, 1))
             d_loss_fake = self.discriminator.train_on_batch(generated_data, fake_labels)
 
@@ -79,12 +90,24 @@ class GAN:
             noise = self.noise_distribution()
             g_loss = self.gan.train_on_batch(noise, real_labels)
 
+            d_loss_real_total += d_loss_real
+            d_loss_fake_total += d_loss_fake
+            g_loss_total += g_loss
+
             # Save losses
-            if epoch % 100 == 0:
-                print(f"Epoch {epoch}, D_loss_real: {d_loss_real}, D_loss_fake: {d_loss_fake}, G_loss: {g_loss}")
-                self.d_losses_real.append(d_loss_real)
-                self.d_losses_fake.append(d_loss_fake)
-                self.g_losses.append(g_loss)
+            if epoch % save_every_n == 0:
+                d_loss_real_total /= save_every_n
+                d_loss_fake_total /= save_every_n
+                g_loss_total /= save_every_n
+                print(f"Epoch {epoch}, D_loss_real: {d_loss_real_total}, D_loss_fake: {d_loss_fake_total}, G_loss: {g_loss_total}")
+                self.d_losses_real.append(d_loss_real_total)
+                self.d_losses_fake.append(d_loss_fake_total)
+                self.g_losses.append(g_loss_total)
+
+                d_loss_real_total = 0
+                d_loss_fake_total = 0
+                g_loss_total = 0
+
 
     def plot_losses(self, folder_path):
         plt.plot(self.d_losses_real, label='D_loss_real')
@@ -142,33 +165,37 @@ class GAN:
 
 if __name__ == "__main__":
     # Parameters
-    epochs=100
+    epochs=300
     latent_dim=100
     batch_size=128
     noise_low=-1
     noise_high=1
-    results_path='results/gan/1d/'
-    """
+    results_path='results/gan/1d/pointwise/'
+    layers_gen = [2, 13, 7, 1]
+    layers_disc = [11, 29, 11, 1]
 
     # Normal distributions
-    means = [0, 5, 10]
-    sds = [1, 1.5, 2, 3]
+    means = [0]
+    sds = [1]
 
     for mean in means:
         for sd in sds:
             print(f"Running GAN for normal distribution with mean: {mean}, sd: {sd}")
             gan = GAN(latent_dim=latent_dim, epochs=epochs, batch_size=batch_size,
                       target_mean=mean, target_sd=sd, target_normal=True,
-                      noise_low=noise_low, noise_high=noise_high, results_path=results_path)
+                      noise_low=noise_low, noise_high=noise_high, results_path=results_path,
+                      layers_disc=layers_disc, layers_gen=layers_gen)
 
             gan.train()
             gan.plot_and_save()
 
     """
+
     # Uniform distributions
     # lows = np.linspace(-30, 30, 5)
     # highs = np.linspace(-30, 30, 5)
-    edges = [(-1,1), (0, 0.1), (0,2), (10,11), (10,15)]
+    #edges = [(-1,1), (0, 0.1), (0,2), (10,11), (10,15)]
+    edges = [(0,2)]
 
     for (low, high) in edges:
         print(f"Running GAN for uniform distribution with low: {low}, high: {high}")
@@ -178,4 +205,6 @@ if __name__ == "__main__":
 
         gan.train()
         gan.plot_and_save()
+
+    """
 
