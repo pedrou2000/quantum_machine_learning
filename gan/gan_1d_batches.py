@@ -157,7 +157,7 @@ if __name__ == "__main__":
     results_path='results/gan/1d/setwise/'
     """
 
-    # Normal distributions
+    # Normal distributionss
     means = [0, 5, 10]
     sds = [1, 1.5, 2, 3]
 
