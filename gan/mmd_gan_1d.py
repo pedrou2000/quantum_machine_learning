@@ -198,32 +198,33 @@ class MMD_GAN:
 if __name__ == "__main__":
 
     # Hyperparameters
-    epochs = 1000
-    print_frequency = 10
+    epochs = 10000
+    print_frequency = 100
     z_dim = 1
     gen_hidden_units = [7, 13, 7]
     critic_hidden_units = [11, 29, 11]
-    gen_lr = 1e-3
+    lrs = [0.0001, 0.001, 0.01]
     critic_lr = 1e-3
     batch_size = 64
-    update_ratio_critic = 1
+    update_ratio_critics = [2,3,4,5]
     update_ratio_gen = 1
     n = 100
-    means = [0, ]
-    variances = [8]
-    results_path = "results/gan/1d/mmd/"
+    means = [10]
+    variances = [1]
+    results_path = "results/gan/1d/mmd/3-different_lrs_ratios/"
 
+    for update_ratio_critic in update_ratio_critics:
+        for lr in lrs:
+            for mean in means:
+                for variance in variances:
+                    print(f"Running GAN for normal distribution with mean: {mean}, variance: {variance}")
 
-    for mean in means:
-        for variance in variances:
-            print(f"Running GAN for normal distribution with mean: {mean}, variance: {variance}")
+                    mmd_gan = MMD_GAN(
+                        z_dim=z_dim, gen_hidden_units=gen_hidden_units, critic_hidden_units=critic_hidden_units,
+                        gen_lr=lr, critic_lr=lr, epochs=epochs, batch_size=batch_size,
+                        update_ratio_critic=update_ratio_critic, update_ratio_gen=update_ratio_gen, 
+                        n=n, mean=mean, variance=variance, results_path=results_path, print_frequency=print_frequency,
+                    )
 
-            mmd_gan = MMD_GAN(
-                z_dim=z_dim, gen_hidden_units=gen_hidden_units, critic_hidden_units=critic_hidden_units,
-                gen_lr=gen_lr, critic_lr=critic_lr, epochs=epochs, batch_size=batch_size,
-                update_ratio_critic=update_ratio_critic, update_ratio_gen=update_ratio_gen, 
-                n=n, mean=mean, variance=variance, results_path=results_path, print_frequency=print_frequency,
-            )
-
-            mmd_gan.train()
-            mmd_gan.plot_and_save()
+                    mmd_gan.train()
+                    mmd_gan.plot_and_save()

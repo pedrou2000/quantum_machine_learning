@@ -1,0 +1,23 @@
+{
+    "timestamp": "2023-03-26 19:53:07",
+    "z_dim": 1,
+    "gen_hidden_units": [
+        7,
+        13,
+        7
+    ],
+    "critic_hidden_units": [
+        11,
+        29,
+        11
+    ],
+    "gen_lr": 0.001,
+    "critic_lr": 0.001,
+    "epochs": 10000,
+    "batch_size": 64,
+    "update_ratio_critic": 1,
+    "update_ratio_gen": 1,
+    "n": 100,
+    "mean": 3,
+    "variance": 8
+}
