@@ -272,13 +272,13 @@ if __name__ == "__main__":
     batch_size = 64
     update_ratio_critic = 2
     update_ratio_gen = 1
-    mean = 22
-    variance = 24
+    mean = 23
+    variance = 1
     results_path = "results/gan/1d/mmd/setwise_paper_4/10000/try_3/"
     mmd_lamb = 0.01
     clip = 1
     sigmas = [1,2,4,8,16]
-    target_dists = ["gaussian", "uniform"] 
+    target_dists = ["gaussian"] 
     input_dists = ["gaussian", "uniform"]
     plot_size = 10000
     n_bins = 100
