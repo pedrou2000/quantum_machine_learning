@@ -1,0 +1,33 @@
+{
+    "timestamp": "2023-04-11 08:41:13",
+    "z_dim": 1,
+    "gen_hidden_units": [
+        7,
+        13,
+        7
+    ],
+    "critic_hidden_units": [
+        11,
+        29,
+        11
+    ],
+    "gen_lr": 0.001,
+    "critic_lr": 0.001,
+    "epochs": 1000,
+    "batch_size": 256,
+    "update_ratio_critic": 5,
+    "update_ratio_gen": 1,
+    "mean": 23,
+    "variance": 1,
+    "results_path": "results/gan/1d/mmd/setwise_paper_4/1000_varying_lamdas_clips/",
+    "print_frequency": 10,
+    "mmd_lamb": 1,
+    "sigmas": [
+        1,
+        2,
+        4,
+        8,
+        16
+    ],
+    "clip": 0.01
+}

@@ -198,20 +198,20 @@ class MMD_GAN:
 if __name__ == "__main__":
 
     # Hyperparameters
-    epochs = 10000
+    epochs = 100000
     print_frequency = 100
     z_dim = 1
     gen_hidden_units = [7, 13, 7]
     critic_hidden_units = [11, 29, 11]
-    lrs = [0.0001, 0.001, 0.01]
+    lrs = [0.01]
     critic_lr = 1e-3
     batch_size = 64
-    update_ratio_critics = [2,3,4,5]
+    update_ratio_critics = [2]
     update_ratio_gen = 1
     n = 100
     means = [10]
     variances = [1]
-    results_path = "results/gan/1d/mmd/3-different_lrs_ratios/"
+    results_path = "results/gan/1d/mmd/setwise/2-epochs_100000/"
 
     for update_ratio_critic in update_ratio_critics:
         for lr in lrs:
