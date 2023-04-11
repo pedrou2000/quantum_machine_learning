@@ -5,14 +5,16 @@ import tensorflow as tf
 from tensorflow.keras.layers import Dense, ELU
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.optimizers import Adam
+from matplotlib.ticker import FuncFormatter, PercentFormatter
+from scipy.stats import norm, uniform, cauchy, pareto
 import numpy as np
 import matplotlib.pyplot as plt
 
 
 class MMD_GAN:
-    def __init__(self, z_dim, gen_hidden_units, critic_hidden_units, gen_lr, critic_lr, 
-                 epochs, batch_size, update_ratio_critic, update_ratio_gen, mean, variance, 
-                 results_path, print_frequency, mmd_lamb, sigmas, clip, target_normal, input_normal):
+    def __init__(self, z_dim, gen_hidden_units, critic_hidden_units, gen_lr, critic_lr, epochs, 
+                 batch_size, update_ratio_critic, update_ratio_gen, mean, variance, results_path, 
+                 print_frequency, mmd_lamb, sigmas, clip, target_dist, input_dist, plot_size, n_bins):
         self.z_dim = z_dim
         self.gen_hidden_units = gen_hidden_units
         self.critic_hidden_units = critic_hidden_units
@@ -29,8 +31,10 @@ class MMD_GAN:
         self.mmd_lamb = mmd_lamb
         self.sigmas = sigmas
         self.clip = clip
-        self.target_normal = target_normal
-        self.input_normal = input_normal
+        self.target_dist = target_dist
+        self.input_dist = input_dist
+        self.plot_size = plot_size
+        self.n_bins = n_bins
 
         self.generator_losses = []
         self.critic_losses = []
@@ -42,19 +46,26 @@ class MMD_GAN:
         self.critic_optimizer = Adam(learning_rate=self.critic_lr)
    
     def sample_real_data_batch(self):
-        if self.target_normal:
+        if self.target_dist == "gaussian":
             return np.random.normal(self.mean, np.sqrt(self.variance), (self.batch_size, 1)).astype(np.float32)
-        else:
+        elif self.target_dist == "uniform":
             return np.random.uniform(self.mean, self.variance, (self.batch_size, 1)).astype(np.float32)
+        elif self.target_dist == "cauchy":
+            return cauchy.rvs(self.mean,  np.sqrt(self.variance), size=(self.batch_size, 1)).astype(np.float32)
+        elif self.target_dist == "pareto":
+            return pareto.rvs(self.mean, scale=np.sqrt(self.variance), size=(self.batch_size, 1)).astype(np.float32)
 
-
-    def sample_noise(self):
-        if self.input_normal:
-            return np.random.normal(0, 1, (self.batch_size, self.z_dim)).astype(np.float32)
+    def sample_noise(self, plot=False):
+        if not plot: 
+            if self.input_dist == "gaussian":
+                return np.random.normal(0, 1, (self.batch_size, self.z_dim)).astype(np.float32)
+            elif self.input_dist == "uniform":
+                return np.random.uniform(0, 1,(self.batch_size, self.z_dim)).astype(np.float32)
         else:
-            return np.random.uniform(0, 1,(self.batch_size, self.z_dim)).astype(np.float32)
-        
-        #return tf.random.normal((self.batch_size, self.z_dim))
+            if self.input_dist == "gaussian":
+                return np.random.normal(0, 1, (self.plot_size, self.z_dim)).astype(np.float32)
+            elif self.input_dist == "uniform":
+                return np.random.uniform(0, 1,(self.plot_size, self.z_dim)).astype(np.float32)
 
     def create_generator(self):
         model = Sequential()
@@ -165,16 +176,36 @@ class MMD_GAN:
 
 
     def plot_results(self, folder_path):
-        z1 = self.sample_noise()
+        z1 = self.sample_noise(plot=True)
         x_fake = self.generator(z1).numpy().flatten()
-        x_real = self.sample_real_data_batch().flatten()
 
-        plt.hist(x_fake, bins=50, alpha=0.6, label="Generated Data")
-        plt.hist(x_real, bins=50, alpha=0.6, label="Real Data")
+        plt.hist(x_fake, bins=self.n_bins, alpha=0.6, label="Generated Data", density=True) # set density=True to display percentages
+
+        # Plot PDFs
+        x_values = np.linspace(self.mean - 4 * np.sqrt(self.variance), self.mean + 4 * np.sqrt(self.variance), 1000)
+
+        if self.target_dist == "gaussian":
+            pdf_values = norm.pdf(x_values, loc=self.mean, scale=np.sqrt(self.variance))
+        elif self.target_dist == "uniform":
+            lower_bound = self.mean
+            upper_bound = self.variance
+            scale = upper_bound - lower_bound
+            pdf_values = uniform.pdf(x_values, loc=self.mean, scale=scale)
+        elif self.target_dist == "cauchy":
+            pdf_values = cauchy.pdf(x_values, loc=self.mean, scale=np.sqrt(self.variance))
+        elif self.target_dist == "pareto":
+            pdf_values = pareto.pdf(x_values, b=self.mean, scale=np.sqrt(self.variance))
+
+        pdf_values = pdf_values / (pdf_values.sum() * np.diff(x_values)[0]) # normalize the PDF
+
+        plt.plot(x_values, pdf_values, label="Real PDF")
+
         plt.legend()
 
         plt.savefig(f"{folder_path}histogram.png", dpi=300)
         plt.close()
+
+
 
     def plot_losses(self, folder_path):
         plt.plot(self.critic_losses, label='Critic MMD')
@@ -206,16 +237,18 @@ class MMD_GAN:
             "mmd_lamb": self.mmd_lamb,
             "sigmas": self.sigmas,
             "clip": self.clip,
-            "target_normal": self.target_normal,
-            "input_normal": self.input_normal,
+            "target_dist": self.target_dist,
+            "input_dist": self.input_dist,
+            "plot_size": self.plot_size,
+            "n_bins": self.n_bins,
         }
         with open(os.path.join(folder_path, "parameters.json"), "w") as f:
             json.dump(parameters, f, indent=4)
     
     def create_result_folder(self):
-        timestamp = time.strftime("%Y%m%d_%H%M%S")
+        timestamp = time.strftime("%m%d_%H%M")
         folder_path = (
-            self.results_path + f"mmd_gan_{self.mean}_{self.variance}_{timestamp}/"
+            self.results_path + f"epochs_{self.epochs}_target_{self.target_dist}_input_{self.input_dist}_{self.variance}_{timestamp}/"
         )
         os.makedirs(folder_path, exist_ok=True)
         return folder_path
@@ -226,51 +259,55 @@ class MMD_GAN:
         self.plot_losses(folder_path)
         self.save_parameters_to_json(folder_path)
 
+
+
 if __name__ == "__main__":
     # Hyperparameters
-    epochs = 5000
-    print_frequency = 10
+    epochs = 10000
+    print_frequency = 100
     z_dim = 2
     gen_hidden_units = [7, 13, 7]
     critic_hidden_units = [11, 29, 11]
-    gen_lr = 1e-3
-    critic_lr = 1e-3
-    batch_size = 256
-    update_ratio_critic = 5
+    lr = 1e-3
+    batch_size = 64
+    update_ratio_critic = 2
     update_ratio_gen = 1
-    mean = 23
-    variance = 1
-    results_path = "results/gan/1d/mmd/setwise_paper_4/"
-    mmd_lambs = [0.01]
-    clips = [1]
+    mean = 22
+    variance = 24
+    results_path = "results/gan/1d/mmd/setwise_paper_4/10000/try_3/"
+    mmd_lamb = 0.01
+    clip = 1
     sigmas = [1,2,4,8,16]
-    target_normal = True 
-    input_normal = True
+    target_dists = ["gaussian", "uniform"] 
+    input_dists = ["gaussian", "uniform"]
+    plot_size = 10000
+    n_bins = 100
 
 
-    for clip in clips:
-        for mmd_lamb in mmd_lambs:
+    for input_dist in input_dists:
+        for target_dist in target_dists:
+                mmd_gan = MMD_GAN(
+                    z_dim=z_dim,
+                    gen_hidden_units=gen_hidden_units,
+                    critic_hidden_units=critic_hidden_units,
+                    gen_lr=lr,
+                    critic_lr=lr,
+                    epochs=epochs,
+                    batch_size=batch_size,
+                    update_ratio_critic=update_ratio_critic,
+                    update_ratio_gen=update_ratio_gen,
+                    mean=mean,
+                    variance=variance,
+                    results_path=results_path,
+                    print_frequency=print_frequency,
+                    mmd_lamb=mmd_lamb,
+                    sigmas=sigmas,
+                    clip=clip,
+                    target_dist=target_dist,
+                    input_dist=input_dist,
+                    plot_size=plot_size,
+                    n_bins=n_bins,
+                )
 
-            mmd_gan = MMD_GAN(
-                z_dim=z_dim,
-                gen_hidden_units=gen_hidden_units,
-                critic_hidden_units=critic_hidden_units,
-                gen_lr=gen_lr,
-                critic_lr=critic_lr,
-                epochs=epochs,
-                batch_size=batch_size,
-                update_ratio_critic=update_ratio_critic,
-                update_ratio_gen=update_ratio_gen,
-                mean=mean,
-                variance=variance,
-                results_path=results_path,
-                print_frequency=print_frequency,
-                mmd_lamb=mmd_lamb,
-                sigmas=sigmas,
-                clip=clip,
-                target_normal=target_normal,
-                input_normal=input_normal,
-            )
-
-            mmd_gan.train()
-            mmd_gan.plot_and_save()
+                mmd_gan.train()
+                mmd_gan.plot_and_save()
