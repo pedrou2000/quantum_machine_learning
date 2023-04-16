@@ -3,6 +3,7 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 from dwave.system import DWaveSampler, EmbeddingComposite
 from classic_rbm import RBM
+import matplotlib.pyplot as plt
 
 
 
@@ -110,23 +111,30 @@ class QuantumRBM(RBM):
             print(f"Epoch {epoch + 1}/{epochs} completed.")
 
     def reconstruct(self, visible_samples):
-        hidden_probs = self.sigmoid(visible_samples @ self.weights + self.hidden_bias)
-        hidden_states = (hidden_probs > np.random.rand(*hidden_probs.shape)).astype(np.float32)
+        # Compute hidden states using quantum annealing
+        hidden_states = self._quantum_anneal(visible_samples)
+
+        # Compute visible probabilities from the hidden states
         visible_probs_recon = self.sigmoid(hidden_states @ self.weights.T + self.visible_bias)
         return visible_probs_recon
 
-    def plot_generated_images(self):
-        import matplotlib.pyplot as plt
+    def plot_generated_images(self, n_images):
+        n_plot_axis = np.sqrt(n_images)
 
-        # Generate hidden states
-        hidden_states = np.random.rand(100, self.num_hidden)
+        # Generate random visible states for images
+        random_visible_states = np.random.rand(n_images, self.num_visible)
 
-        # Compute visible probabilities and reshape them to images
+        # Compute hidden states using quantum annealing
+        hidden_states = self._quantum_anneal(random_visible_states)
+
+        # Compute visible probabilities from the hidden states
         visible_probs = self.sigmoid(hidden_states @ self.weights.T + self.visible_bias)
+
+        # Reshape visible probabilities to images
         generated_images = visible_probs.reshape(-1, 28, 28)
 
         # Plot the generated images
-        fig, axes = plt.subplots(10, 10, figsize=(10, 10))
+        fig, axes = plt.subplots(n_plot_axis, n_plot_axis, figsize=(5, 5))
         for i, ax in enumerate(axes.flatten()):
             ax.imshow(generated_images[i], cmap='gray')
             ax.axis('off')
@@ -135,15 +143,19 @@ class QuantumRBM(RBM):
 
 
 
+
+
 if __name__ == "__main__":
 
-    n_images = 5
+    n_images = 2
     epochs = 2
     batch_size = 1
 
     num_visible = 784
     num_hidden = 80
     learning_rate = 0.1
+
+    n_images = 4
 
     data_location = 'data/mnist/'
     #preprocess_data(data_location)
@@ -158,9 +170,9 @@ if __name__ == "__main__":
     quantum_rbm.train(train_images[:n_images], epochs=epochs, batch_size=batch_size)
 
     # Reconstruct some images and calculate the reconstruction error
-    reconstructed_images = quantum_rbm.reconstruct(train_images[:10])
-    reconstruction_error = np.mean((train_images[:10] - reconstructed_images) ** 2)
+    reconstructed_images = quantum_rbm.reconstruct(train_images[:n_images])
+    reconstruction_error = np.mean((train_images[:n_images] - reconstructed_images) ** 2)
     print(f"Reconstruction error: {reconstruction_error:.6f}")
 
     # Generate and plot images after training
-    quantum_rbm.plot_generated_images()
+    quantum_rbm.plot_generated_images(n_images=n_images)
