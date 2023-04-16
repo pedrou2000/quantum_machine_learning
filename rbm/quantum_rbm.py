@@ -33,10 +33,8 @@ def preprocess_data(data_location):
 
 
 class QuantumRBM(RBM):
-    def __init__(self, num_visible, num_hidden, learning_rate=0.1, annealing_time=0.5):
+    def __init__(self, num_visible, num_hidden, learning_rate=0.1):
         super().__init__(num_visible, num_hidden, learning_rate)
-        self.annealing_time = annealing_time
-
         # Initialize the D-Wave quantum annealer
         self.sampler = EmbeddingComposite(DWaveSampler())
 
@@ -64,18 +62,21 @@ class QuantumRBM(RBM):
 
     def _quantum_anneal(self, visible_samples):
         # Define the QUBO problem
-        print('Building QUBO')
         qubos = self._build_qubo(visible_samples)
-        print('Finished Building QUBO, sending to annealer')
 
         hidden_states = []
+        i = 0
+        print('Number of QUBOS: '+str(len(qubos)))
         for qubo in qubos:
+            print('QUBO '+str(i))
             # Run the quantum annealing
-            response = self.sampler.sample_qubo(qubo, num_reads=1, annealing_time=self.annealing_time)
+            response = self.sampler.sample_qubo(qubo, num_reads=1)
+            print('Finished Annealing '+str(i))
 
             # Convert the results to binary hidden unit activations
             hidden_state = np.array([int(bit) for bit in response.first.sample.values()])
             hidden_states.append(hidden_state)
+            i+=1
 
         print('Finished Annealer')
         return np.array(hidden_states)
@@ -84,6 +85,7 @@ class QuantumRBM(RBM):
         print('Training Quantum RBM...')
 
         num_samples = data.shape[0]
+        print(num_samples)
 
         for epoch in range(epochs):
             np.random.shuffle(data)
@@ -135,6 +137,14 @@ class QuantumRBM(RBM):
 
 if __name__ == "__main__":
 
+    n_images = 5
+    epochs = 2
+    batch_size = 1
+
+    num_visible = 784
+    num_hidden = 80
+    learning_rate = 0.1
+
     data_location = 'data/mnist/'
     #preprocess_data(data_location)
 
@@ -144,8 +154,8 @@ if __name__ == "__main__":
 
 
     # Create and train the QuantumRBM
-    quantum_rbm = QuantumRBM(num_visible=784, num_hidden=80, learning_rate=0.1)
-    quantum_rbm.train(train_images, epochs=25, batch_size=100)
+    quantum_rbm = QuantumRBM(num_visible=num_visible, num_hidden=num_hidden, learning_rate=learning_rate)
+    quantum_rbm.train(train_images[:n_images], epochs=epochs, batch_size=batch_size)
 
     # Reconstruct some images and calculate the reconstruction error
     reconstructed_images = quantum_rbm.reconstruct(train_images[:10])
