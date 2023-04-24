@@ -1,0 +1,9 @@
+{
+    "timestamp": "2023-04-24 10:39:03",
+    "latent_dim": 100,
+    "epochs": 100,
+    "batch_size": 128,
+    "mean": 0,
+    "variance": 1,
+    "target_dist": "uniform"
+}
