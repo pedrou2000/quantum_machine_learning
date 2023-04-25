@@ -189,6 +189,7 @@ class GAN:
         self.plot_losses(folder_path)
         self.save_parameters_to_json(folder_path)
 
+
 def simple_main(hyperparameters):
     gan = GAN(hyperparameters)
     gan.train()
