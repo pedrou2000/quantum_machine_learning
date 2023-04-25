@@ -231,11 +231,32 @@ class MMD_GAN:
         self.save_parameters_to_json(folder_path)
 
 
+def simple_main(hyperparameters):
+    mmd_gan = MMD_GAN(hyperparameters)  
+    mmd_gan.train()
+    mmd_gan.plot_and_save()
+
+def complex_main(hyperparameters):
+    target_dists = ["gaussian", "uniform"]
+    input_dists = ["gaussian", "uniform"]
+
+    for taget_dist in target_dists:
+        hyperparameters['distributions']['taget_dist'] = taget_dist
+        
+        for input_dist in input_dists:
+            hyperparameters['distributions']['input_dist'] = input_dist
+
+            mmd_gan = MMD_GAN(hyperparameters)  
+            mmd_gan.train()
+            mmd_gan.plot_and_save()
+
 
 if __name__ == "__main__":
+    one_run = False
+
     hyperparameters = {
         'training': {
-            'epochs': 100,
+            'epochs': 20,
             'save_frequency': 10,
             'batch_size': 64,
             'update_ratio_critic': 2,
@@ -263,8 +284,7 @@ if __name__ == "__main__":
         }
     }
 
-
-
-    mmd_gan = MMD_GAN(hyperparameters)  
-    mmd_gan.train()
-    mmd_gan.plot_and_save()
+    if one_run:
+        simple_main(hyperparameters=hyperparameters)
+    else:
+        complex_main(hyperparameters=hyperparameters)

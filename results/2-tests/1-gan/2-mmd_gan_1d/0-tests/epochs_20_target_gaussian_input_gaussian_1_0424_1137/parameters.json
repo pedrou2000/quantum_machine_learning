@@ -1,8 +1,8 @@
 {
-    "timestamp": "2023-04-24 11:18:38",
+    "timestamp": "2023-04-24 11:37:45",
     "hyperparameters": {
         "training": {
-            "epochs": 100,
+            "epochs": 20,
             "save_frequency": 10,
             "batch_size": 64,
             "update_ratio_critic": 2,
@@ -35,7 +35,8 @@
             "mean": 23,
             "variance": 1,
             "target_dist": "gaussian",
-            "input_dist": "uniform"
+            "input_dist": "gaussian",
+            "taget_dist": "uniform"
         },
         "plotting": {
             "plot_size": 10000,

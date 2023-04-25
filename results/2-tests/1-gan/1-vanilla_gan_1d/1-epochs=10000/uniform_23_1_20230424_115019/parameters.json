@@ -1,16 +1,10 @@
 {
-    "timestamp": "2023-04-24 11:08:27",
+    "timestamp": "2023-04-24 11:50:20",
     "hyperparameters": {
         "training": {
-            "epochs": 100,
+            "epochs": 10000,
             "batch_size": 128,
             "save_frequency": 10
-        },
-        "distributions": {
-            "target_dist": "uniform",
-            "input_dist": "gaussian",
-            "mean": 0,
-            "variance": 1
         },
         "network": {
             "latent_dim": 100,
@@ -27,10 +21,17 @@
                 1
             ]
         },
+        "distributions": {
+            "mean": 23,
+            "variance": 1,
+            "target_dist": "uniform",
+            "input_dist": "gaussian",
+            "taget_dist": "gaussian"
+        },
         "plotting": {
             "plot_size": 10000,
             "n_bins": 100,
-            "results_path": "results/2-tests/1-gan/1-vanilla_gan_1d/0-tests/"
+            "results_path": "results/2-tests/1-gan/1-vanilla_gan_1d/1-epochs=10000/"
         }
     }
 }

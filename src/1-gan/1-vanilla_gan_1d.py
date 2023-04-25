@@ -187,9 +187,30 @@ class GAN:
         self.plot_losses(folder_path)
         self.save_parameters_to_json(folder_path)
 
+def simple_main(hyperparameters):
+    gan = GAN(hyperparameters)
+    gan.train()
+    gan.plot_and_save()
+
+def complex_main(hyperparameters):
+    target_dists = ["gaussian"]
+    input_dists = ["gaussian", "uniform"]
+
+    for taget_dist in target_dists:
+        hyperparameters['distributions']['taget_dist'] = taget_dist
+        
+        for input_dist in input_dists:
+            hyperparameters['distributions']['input_dist'] = input_dist
+
+            gan = GAN(hyperparameters)
+            gan.train()
+            gan.plot_and_save()
+
 
 
 if __name__ == "__main__":
+    one_run = False
+
     hyperparameters = {
         'training': {
             'epochs': 100,
@@ -210,13 +231,17 @@ if __name__ == "__main__":
         'plotting': {
             'plot_size': 10000,
             'n_bins': 100,
-            'results_path': 'results/2-tests/1-gan/1-vanilla_gan_1d/0-tests/',
+            'results_path': 'results/2-tests/1-gan/1-vanilla_gan_1d/1-epochs=10000/',
         },
     }
 
 
-    gan = GAN(hyperparameters)
-    gan.train()
-    gan.plot_and_save()
+    if one_run:
+        simple_main(hyperparameters=hyperparameters)
+    else:
+        complex_main(hyperparameters=hyperparameters)
+
+
+
 
 
