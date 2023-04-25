@@ -15,6 +15,7 @@ class GAN:
         self.epochs = hyperparameters['training']['epochs']
         self.batch_size = hyperparameters['training']['batch_size']
         self.save_frequency = hyperparameters['training']['save_frequency']
+        self.update_ratio_critic = hyperparameters['training']['update_ratio_critic']
         self.mean = hyperparameters['distributions']['mean']
         self.variance = hyperparameters['distributions']['variance']
         self.target_dist = hyperparameters['distributions']['target_dist']
@@ -92,14 +93,15 @@ class GAN:
         g_loss_total = 0
 
         for epoch in range(self.epochs):
-            # Train discriminator on real data
-            d_loss_real = self.discriminator.train_on_batch(real_data, real_labels)
+            for _ in range(self.update_ratio_critic):
+                # Train discriminator on real data
+                d_loss_real = self.discriminator.train_on_batch(real_data, real_labels)
 
-            # Train discriminator on generated data
-            noise = self.sample_noise()
-            generated_data = self.generator.predict(noise, verbose=0)
-            fake_labels = np.zeros((self.batch_size, 1))
-            d_loss_fake = self.discriminator.train_on_batch(generated_data, fake_labels)
+                # Train discriminator on generated data
+                noise = self.sample_noise()
+                generated_data = self.generator.predict(noise, verbose=0)
+                fake_labels = np.zeros((self.batch_size, 1))
+                d_loss_fake = self.discriminator.train_on_batch(generated_data, fake_labels)
 
             # Train generator
             noise = self.sample_noise()
@@ -209,13 +211,14 @@ def complex_main(hyperparameters):
 
 
 if __name__ == "__main__":
-    one_run = False
+    one_run = True
 
     hyperparameters = {
         'training': {
             'epochs': 100,
             'batch_size': 128,
             'save_frequency': 10,
+            'update_ratio_critic': 1,
         },
         'network': {
             'latent_dim': 100,
@@ -231,7 +234,8 @@ if __name__ == "__main__":
         'plotting': {
             'plot_size': 10000,
             'n_bins': 100,
-            'results_path': 'results/2-tests/1-gan/1-vanilla_gan_1d/1-epochs=10000/',
+            'results_path': 'results/2-tests/1-gan/1-vanilla_gan_1d/0-tests/',
+            #'results_path': 'results/2-tests/1-gan/1-vanilla_gan_1d/1-epochs=10000/',
         },
     }
 
