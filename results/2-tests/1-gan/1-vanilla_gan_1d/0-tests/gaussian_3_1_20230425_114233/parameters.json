@@ -1,0 +1,37 @@
+{
+    "timestamp": "2023-04-25 11:42:33",
+    "hyperparameters": {
+        "training": {
+            "epochs": 30,
+            "batch_size": 128,
+            "save_frequency": 10,
+            "update_ratio_critic": 1
+        },
+        "network": {
+            "latent_dim": 100,
+            "layers_gen": [
+                2,
+                13,
+                7,
+                1
+            ],
+            "layers_disc": [
+                11,
+                29,
+                11,
+                1
+            ]
+        },
+        "distributions": {
+            "mean": 3,
+            "variance": 1,
+            "target_dist": "gaussian",
+            "input_dist": "uniform"
+        },
+        "plotting": {
+            "plot_size": 10000,
+            "n_bins": 100,
+            "results_path": "results/2-tests/1-gan/1-vanilla_gan_1d/0-tests/"
+        }
+    }
+}

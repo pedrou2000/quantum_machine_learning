@@ -212,9 +212,9 @@ if __name__ == "__main__":
 
     hyperparameters = {
         'training': {
-            'epochs': 10000,
+            'epochs': 100,
             'batch_size': 128,
-            'save_frequency': 100,
+            'save_frequency': 10,
             'update_ratio_critic': 5,
         },
         'network': {
@@ -223,7 +223,7 @@ if __name__ == "__main__":
             'layers_disc': [11, 29, 11, 1],
         },
         'distributions': {
-            'mean': 21,
+            'mean': 1,
             'variance': 1,
             'target_dist': 'gaussian',
             'input_dist': 'uniform',
@@ -231,8 +231,7 @@ if __name__ == "__main__":
         'plotting': {
             'plot_size': 10000,
             'n_bins': 100,
-            #'results_path': 'results/2-tests/1-gan/1-vanilla_gan_1d/0-tests/',
-            'results_path': 'results/2-tests/1-gan/1-vanilla_gan_1d/1-epochs=10K/',
+            'results_path': 'results/2-tests/4-qaaan/1-classical_vanilla_qaaan/',
         },
     }
 
