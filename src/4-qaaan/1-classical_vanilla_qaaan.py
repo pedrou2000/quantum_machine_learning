@@ -7,6 +7,7 @@ import os
 import time
 import json
 from scipy.stats import norm, uniform, cauchy, pareto
+from src.1-gan.1-vanilla_gan_1d
 
 class GAN:
     def __init__(self, hyperparameters):
@@ -32,6 +33,10 @@ class GAN:
         self.d_losses_real = []
         self.d_losses_fake = []
         self.g_losses = []
+
+        # Create a new model to extract intermediate layer output
+        self.intermediate_layer_model = self.create_intermediate_layer_model(layer_index=-2)
+
 
     def sample_real_data(self):
         if self.target_dist == "gaussian":
@@ -73,6 +78,11 @@ class GAN:
         model.add(layers.Dense(self.layers_disc[len(self.layers_disc)-1], activation='sigmoid'))
         return model
 
+    def create_intermediate_layer_model(self, layer_index):
+        input_layer = self.discriminator.input
+        intermediate_layer = self.discriminator.get_layer(index=layer_index).output
+        return keras.Model(inputs=input_layer, outputs=intermediate_layer)
+
     def create_gan(self):
         model = keras.Sequential()
         model.add(self.generator)
@@ -111,11 +121,20 @@ class GAN:
             d_loss_fake_total += d_loss_fake
             g_loss_total += g_loss
 
+
+            # Get intermediate layer outputs
+            intermediate_output_real = self.intermediate_layer_model.predict(real_data, verbose=0)
+            intermediate_output_fake = self.intermediate_layer_model.predict(generated_data, verbose=0)
+
+
             # Save losses
             if epoch % self.save_frequency == 0:
                 d_loss_real_total /= self.save_frequency
                 d_loss_fake_total /= self.save_frequency
                 g_loss_total /= self.save_frequency
+                print('Real Data Input to Discriminator\'s shape: ', real_data.shape)
+                print('Intermediate Output Real\'s Shape: ', intermediate_output_real.shape)
+                print('Intermediate Output Fake\'s Shape: ', intermediate_output_fake.shape)
                 print(f"Epoch {epoch}, D_loss_real: {d_loss_real_total}, D_loss_fake: {d_loss_fake_total}, G_loss: {g_loss_total}")
                 self.d_losses_real.append(d_loss_real_total)
                 self.d_losses_fake.append(d_loss_fake_total)

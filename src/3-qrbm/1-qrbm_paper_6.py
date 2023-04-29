@@ -22,12 +22,6 @@ class QuantumRBM:
         self.visible_biases = np.zeros(num_visible)
         self.hidden_biases = np.zeros(num_hidden)
 
-    def preprocess_data(self, data):
-        data = data / 255.0
-        data = (data > 0.5).astype(int)
-        data = data.reshape(-1, 784)
-        return data
-
     def create_visible_hamiltonian(self, visible_biases, weights, hidden_biases):
         hamiltonian = 0
         hidden_variables = [Binary(str(j)) for j in range(len(hidden_biases))]
@@ -86,8 +80,6 @@ class QuantumRBM:
         return 1 / (1 + np.exp(-x))
 
     def train(self, training_data, len_x=1, len_y=1):
-        # Preprocess the data
-        training_data = self.preprocess_data(training_data)
 
         for epoch in range(self.epochs):
             # Shuffle the training data for each epoch
@@ -122,7 +114,7 @@ class QuantumRBM:
             if self.epoch_drop and (epoch + 1) % self.epoch_drop == 0:
                 self.lr *= 1 - self.lr_decay
 
-    def generate_image(self):
+    def generate_sample(self):
         # Create a random initial visible state
         initial_state = np.random.randint(2, size=self.num_visible)
 
@@ -135,11 +127,13 @@ class QuantumRBM:
         # Threshold the probabilities to create a binary image
         generated_visible_sample = (generated_visible_probs > 0.5).astype(int)
 
-        # Reshape the visible layer to a 2D image
-        generated_image = generated_visible_sample.reshape(28, 28)
+        return generated_visible_sample
 
-        return generated_image
-
+def preprocess_data(data):
+    data = data / 255.0
+    data = (data > 0.5).astype(int)
+    data = data.reshape(-1, 784)
+    return data
 
 
 
@@ -147,13 +141,13 @@ def main():
     # Load MNIST dataset
 
     # Create an instance of the QuantumRBM class
-    n_images = 5
+    n_images = 2
     n_epochs = 2
-    qpu = True 
+    qpu = False 
     lr = 0.1
     num_visible = 784
     num_hidden = 20
-    folder_path = 'results/1-initial_tests/qrbm/qrbm_paper_6/'
+    folder_path = 'results/2-tests/3-qrbm/'
 
 
     (x_train, y_train), (_, _) = mnist.load_data()
@@ -165,13 +159,19 @@ def main():
 
     x_train = x_train_zero[0:n_images]
 
-    rbm = QuantumRBM(num_visible, num_hidden, epochs=n_epochs, lr=lr, lr_decay=0.1, epoch_drop=10, qpu=qpu)
-    rbm.train(x_train)
 
-    # Generate a new image using the generate_image method
-    new_image = rbm.generate_image()
+    # Preprocess the data
+    training_data = preprocess_data(x_train)
+
+    rbm = QuantumRBM(num_visible, num_hidden, epochs=n_epochs, lr=lr, lr_decay=0.1, epoch_drop=10, qpu=qpu)
+    rbm.train(training_data)
+
+    # Generate a new image using the generate_sample method
+    generated_sample = rbm.generate_sample()
 
     # Display the generated image
+    # Reshape the visible layer to a 2D image
+    new_image = generated_sample.reshape(28, 28)
     plt.imshow(new_image, cmap='gray')
     plt.savefig(f'{folder_path}qpu_{qpu}-epochs_{n_epochs}-n_images_{n_images}-lr_{lr}.png')
     plt.close()

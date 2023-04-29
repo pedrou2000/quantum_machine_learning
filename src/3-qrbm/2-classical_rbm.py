@@ -16,12 +16,6 @@ class ClassicalRBM:
         self.visible_biases = np.zeros(num_visible)
         self.hidden_biases = np.zeros(num_hidden)
 
-    def preprocess_data(self, data):
-        data = data / 255.0
-        data = (data > 0.5).astype(int)
-        data = data.reshape(-1, 784)
-        return data
-
     def sigmoid(self, x):
         return 1 / (1 + np.exp(-x))
 
@@ -40,9 +34,6 @@ class ClassicalRBM:
         return np.random.binomial(1, visible_probs)
 
     def train(self, training_data, len_x=1, len_y=1):
-        # Preprocess the data
-        training_data = self.preprocess_data(training_data)
-
         for epoch in range(self.epochs):
             # Shuffle the training data for each epoch
             np.random.shuffle(training_data)
@@ -73,7 +64,7 @@ class ClassicalRBM:
             if self.epoch_drop and (epoch + 1) % self.epoch_drop == 0:
                 self.lr *= 1 - self.lr_decay
 
-    def generate_image(self):
+    def generate_sample(self):
         # Create a random initial visible state
         initial_state = np.random.randint(2, size=self.num_visible)
 
@@ -83,51 +74,43 @@ class ClassicalRBM:
         # Sample the visible layer based on the hidden layer sample
         generated_visible_sample = self.sample_visible(hidden_sample)
 
-        # Reshape the visible layer to a 2D image
-        generated_image = generated_visible_sample.reshape(28, 28)
-
-        return generated_image
+        return generated_visible_sample
 
 
+def preprocess_data(data):
+    data = data / 255.0
+    data = (data > 0.5).astype(int)
+    data = data.reshape(-1, 784)
+    return data
 
 def main():
     # Load MNIST dataset
     (x_train, y_train), (_, _) = mnist.load_data()
 
     # Create an instance of the ClassicalRBM class
-    n_images = 1000
+    n_images = 10
     n_epochs = 10
     lr = 0.1
     num_visible = 784
     num_hidden = 20
     folder_path = 'results/2-tests/2-rbm/'
 
-    # Filter images and labels for digit 0
-    # zero_indices = np.where((y_train == 0) | (y_train == 1))
-    # x_train_zero = x_train[zero_indices]
-    # y_train_zero = y_train[zero_indices]
-
     # x_train = x_train_zero[0:n_images]
     x_train = x_train[0:n_images]
 
-    rbm = ClassicalRBM(num_visible, num_hidden, epochs=n_epochs, lr=lr)
-    rbm.train(x_train)
+    training_data = preprocess_data(x_train)
 
-    # Generate a new image using the generate_image method
-    new_image = rbm.generate_image()
+
+    rbm = ClassicalRBM(num_visible, num_hidden, epochs=n_epochs, lr=lr)
+    rbm.train(training_data)
+
+    # Generate a new image using the generate_sample method
+    new_image = rbm.generate_sample()
 
     # Display the generated image
+    new_image = new_image.reshape(28, 28)
     plt.imshow(new_image, cmap='gray')
     plt.savefig(f'{folder_path}epochs_{n_epochs}-n_images_{n_images}-lr_{lr}.png')
-    plt.close()
-
-
-    # Generate a new image using the generate_image method
-    new_image = rbm.generate_image()
-
-    # Display the generated image
-    plt.imshow(new_image, cmap='gray')
-    plt.savefig(f'{folder_path}epochs_{n_epochs}-n_images_{n_images}-lr_{lr}_2.png')
     plt.close()
 
 
