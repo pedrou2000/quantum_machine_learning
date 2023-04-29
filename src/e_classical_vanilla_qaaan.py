@@ -7,7 +7,7 @@ import os
 import time
 import json
 from scipy.stats import norm, uniform, cauchy, pareto
-from src.1-gan.1-vanilla_gan_1d
+from src.a_vanilla_gan_1d import *
 
 class GAN:
     def __init__(self, hyperparameters):
