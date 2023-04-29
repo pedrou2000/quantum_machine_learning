@@ -1,5 +1,5 @@
 {
-    "timestamp": "2023-04-28 16:23:01",
+    "timestamp": "2023-04-29 11:03:56",
     "hyperparameters": {
         "training": {
             "epochs": 100,
@@ -23,7 +23,7 @@
             ]
         },
         "distributions": {
-            "mean": 21,
+            "mean": 1,
             "variance": 1,
             "target_dist": "gaussian",
             "input_dist": "uniform"

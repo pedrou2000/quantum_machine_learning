@@ -7,92 +7,19 @@ import os
 import time
 import json
 from scipy.stats import norm, uniform, cauchy, pareto
-from src.a_vanilla_gan_1d import *
+from a_vanilla_gan_1d import *
 
-class GAN:
+class ClassicalQAAAN(GAN):
     def __init__(self, hyperparameters):
-        self.hyperparameters = hyperparameters
-        self.latent_dim = hyperparameters['network']['latent_dim']
-        self.epochs = hyperparameters['training']['epochs']
-        self.batch_size = hyperparameters['training']['batch_size']
-        self.save_frequency = hyperparameters['training']['save_frequency']
-        self.update_ratio_critic = hyperparameters['training']['update_ratio_critic']
-        self.mean = hyperparameters['distributions']['mean']
-        self.variance = hyperparameters['distributions']['variance']
-        self.target_dist = hyperparameters['distributions']['target_dist']
-        self.input_dist = hyperparameters['distributions']['input_dist']
-        self.plot_size = hyperparameters['plotting']['plot_size']
-        self.n_bins = hyperparameters['plotting']['n_bins']
-        self.results_path = hyperparameters['plotting']['results_path']
-        self.layers_gen = hyperparameters['network']['layers_gen']
-        self.layers_disc = hyperparameters['network']['layers_disc']
-        self.generator = self.create_generator()
-        self.discriminator = self.create_discriminator()
-        self.gan = self.create_gan()
-        self.compile_models()
-        self.d_losses_real = []
-        self.d_losses_fake = []
-        self.g_losses = []
+        super().__init__(hyperparameters)
 
         # Create a new model to extract intermediate layer output
         self.intermediate_layer_model = self.create_intermediate_layer_model(layer_index=-2)
-
-
-    def sample_real_data(self):
-        if self.target_dist == "gaussian":
-            return np.random.normal(self.mean, self.variance, self.batch_size)
-        elif self.target_dist == "uniform":
-            return np.random.uniform(self.mean, self.variance, self.batch_size)
-        elif self.target_dist == "cauchy":
-            return cauchy.rvs(self.mean, self.variance, self.batch_size)
-        elif self.target_dist == "pareto":
-            return pareto.rvs(self.mean, self.variance, self.batch_size)
-
-    def sample_noise(self, plot=False):
-        if not plot: 
-            if self.input_dist == "gaussian":
-                return np.random.normal(0, 1, (self.batch_size, self.latent_dim))
-            elif self.input_dist == "uniform":
-                return np.random.uniform(0, 1,(self.batch_size, self.latent_dim))
-        else:
-            if self.input_dist == "gaussian":
-                return np.random.normal(0, 1, (self.plot_size, self.latent_dim))
-            elif self.input_dist == "uniform":
-                return np.random.uniform(0, 1,(self.plot_size, self.latent_dim))
-
-    def create_generator(self):
-        model = keras.Sequential()
-        
-        model.add(layers.Dense(self.layers_gen[0], activation='relu', input_dim=self.latent_dim))
-        for n_layer in self.layers_gen[1:-1]:
-            model.add(layers.Dense(n_layer, activation='relu'))
-        model.add(layers.Dense(self.layers_gen[len(self.layers_gen)-1], activation='linear'))
-        return model
-
-    def create_discriminator(self):
-        model = keras.Sequential()
-
-        model.add(layers.Dense(self.layers_disc[0], activation='relu', input_shape=(1,)))
-        for n_layer in self.layers_disc[1:-1]:
-            model.add(layers.Dense(n_layer, activation='relu'))
-        model.add(layers.Dense(self.layers_disc[len(self.layers_disc)-1], activation='sigmoid'))
-        return model
 
     def create_intermediate_layer_model(self, layer_index):
         input_layer = self.discriminator.input
         intermediate_layer = self.discriminator.get_layer(index=layer_index).output
         return keras.Model(inputs=input_layer, outputs=intermediate_layer)
-
-    def create_gan(self):
-        model = keras.Sequential()
-        model.add(self.generator)
-        model.add(self.discriminator)
-        return model
-
-    def compile_models(self):
-        self.discriminator.compile(optimizer='adam', loss='binary_crossentropy')
-        self.discriminator.trainable = False
-        self.gan.compile(optimizer='adam', loss='binary_crossentropy')
 
     def train(self):
         real_data = self.sample_real_data()
@@ -145,72 +72,8 @@ class GAN:
                 g_loss_total = 0
 
 
-    def plot_results(self, folder_path):
-        noise = self.sample_noise(plot=True)
-        generated_data = self.generator.predict(noise, verbose=0).flatten()
-
-        plt.hist(generated_data, bins=self.n_bins, alpha=0.6, label='Generated Data', density=True)
-
-        # Plot PDFs
-        x_values = np.linspace(self.mean - 4 * np.sqrt(self.variance), self.mean + 4 * np.sqrt(self.variance), 1000)
-
-        if self.target_dist == "gaussian":
-            pdf_values = norm.pdf(x_values, loc=self.mean, scale=np.sqrt(self.variance))
-        elif self.target_dist == "uniform":
-            lower_bound = self.mean
-            upper_bound = self.variance
-            scale = upper_bound - lower_bound
-            pdf_values = uniform.pdf(x_values, loc=self.mean, scale=scale)
-        elif self.target_dist == "cauchy":
-            pdf_values = cauchy.pdf(x_values, loc=self.mean, scale=np.sqrt(self.variance))
-        elif self.target_dist == "pareto":
-            pdf_values = pareto.pdf(x_values, b=self.mean, scale=np.sqrt(self.variance))
-
-        pdf_values = pdf_values / (pdf_values.sum() * np.diff(x_values)[0])  # normalize the PDF
-
-        plt.plot(x_values, pdf_values, label="Real PDF")
-
-        plt.legend()
-
-        plt.savefig(f'{folder_path}histogram.png', dpi=300)
-        plt.close()
-
-    def plot_losses(self, folder_path):
-        plt.plot(self.d_losses_real, label='D_loss_real')
-        plt.plot(self.d_losses_fake, label='D_loss_fake')
-        plt.plot(self.g_losses, label='G_loss')
-        plt.xlabel('Epoch x '+str(self.save_frequency))
-        plt.ylabel('Loss')
-        plt.legend()
-        plt.title('Losses')
-        plt.ylim(0, 2)
-
-        plt.savefig(f'{folder_path}losses.png', dpi=300)
-        plt.close()
-
-    def save_parameters_to_json(self, folder_path):
-        parameters = {
-            'timestamp': time.strftime('%Y-%m-%d %H:%M:%S'),
-            'hyperparameters': self.hyperparameters,
-        }
-        with open(os.path.join(folder_path, 'parameters.json'), 'w') as f:
-            json.dump(parameters, f, indent=4)
-    
-    def create_result_folder(self):
-        timestamp = time.strftime("%Y%m%d_%H%M%S")
-        folder_path = self.results_path + f'{self.target_dist}_{self.mean}_{self.variance}_{timestamp}/'
-        os.makedirs(folder_path, exist_ok=True)
-        return folder_path
-    
-    def plot_and_save(self):
-        folder_path = self.create_result_folder()
-        self.plot_results(folder_path)
-        self.plot_losses(folder_path)
-        self.save_parameters_to_json(folder_path)
-
-
 def simple_main(hyperparameters):
-    gan = GAN(hyperparameters)
+    gan = ClassicalQAAAN(hyperparameters)
     gan.train()
     gan.plot_and_save()
 
@@ -220,7 +83,7 @@ def complex_main(hyperparameters):
     for update_ratio_critic in update_ratio_critics:
         hyperparameters['training']['update_ratio_critic'] = update_ratio_critic
         
-        gan = GAN(hyperparameters)
+        gan = ClassicalQAAAN(hyperparameters)
         gan.train()
         gan.plot_and_save()
 
