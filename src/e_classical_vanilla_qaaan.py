@@ -8,13 +8,16 @@ import time
 import json
 from scipy.stats import norm, uniform, cauchy, pareto
 from a_vanilla_gan_1d import *
+from c_classical_rbm import *
 
 class ClassicalQAAAN(GAN):
     def __init__(self, hyperparameters):
-        super().__init__(hyperparameters)
+        super().__init__(hyperparameters['hyperparameters_rbm'])
 
         # Create a new model to extract intermediate layer output
         self.intermediate_layer_model = self.create_intermediate_layer_model(layer_index=-2)
+
+
 
     def create_intermediate_layer_model(self, layer_index):
         input_layer = self.discriminator.input
@@ -92,7 +95,7 @@ def complex_main(hyperparameters):
 if __name__ == "__main__":
     one_run = True
 
-    hyperparameters = {
+    hyperparameters_gan = {
         'training': {
             'epochs': 100,
             'batch_size': 128,
@@ -115,6 +118,36 @@ if __name__ == "__main__":
             'n_bins': 100,
             'results_path': 'results/2-tests/4-qaaan/1-classical_vanilla_qaaan/',
         },
+    }
+
+    hyperparameters_rbm = {
+        'training': {
+            'epochs': 100,
+            'batch_size': 128,
+            'save_frequency': 10,
+            'update_ratio_critic': 5,
+        },
+        'network': {
+            'latent_dim': 100,
+            'layers_gen': [2, 13, 7, 1],
+            'layers_disc': [11, 29, 11, 1],
+        },
+        'distributions': {
+            'mean': 1,
+            'variance': 1,
+            'target_dist': 'gaussian',
+            'input_dist': 'uniform',
+        },
+        'plotting': {
+            'plot_size': 10000,
+            'n_bins': 100,
+            'results_path': 'results/2-tests/4-qaaan/1-classical_vanilla_qaaan/',
+        },
+    }
+
+    hyperparameters = {
+        'hyperparameters_gan': hyperparameters_gan,
+        'hyperparameters_rbm': hyperparameters_rbm,
     }
 
 
