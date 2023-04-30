@@ -7,6 +7,7 @@ import os
 import time
 import json
 from scipy.stats import norm, uniform, cauchy, pareto
+from keras.optimizers import Adam
 
 class GAN:
     def __init__(self, hyperparameters):
@@ -16,6 +17,7 @@ class GAN:
         self.batch_size = hyperparameters['training']['batch_size']
         self.save_frequency = hyperparameters['training']['save_frequency']
         self.update_ratio_critic = hyperparameters['training']['update_ratio_critic']
+        self.learning_rate = hyperparameters['training']['learning_rate']
         self.mean = hyperparameters['distributions']['mean']
         self.variance = hyperparameters['distributions']['variance']
         self.target_dist = hyperparameters['distributions']['target_dist']
@@ -61,7 +63,7 @@ class GAN:
         model.add(layers.Dense(self.layers_gen[0], activation='relu', input_dim=self.latent_dim))
         for n_layer in self.layers_gen[1:-1]:
             model.add(layers.Dense(n_layer, activation='relu'))
-        model.add(layers.Dense(self.layers_gen[len(self.layers_gen)-1], activation='linear'))
+        model.add(layers.Dense(self.layers_gen[-1], activation='linear'))
         return model
 
     def create_discriminator(self):
@@ -80,9 +82,10 @@ class GAN:
         return model
 
     def compile_models(self):
-        self.discriminator.compile(optimizer='adam', loss='binary_crossentropy')
+        custom_adam = Adam(learning_rate=self.learning_rate)
+        self.discriminator.compile(optimizer=custom_adam, loss='binary_crossentropy')
         self.discriminator.trainable = False
-        self.gan.compile(optimizer='adam', loss='binary_crossentropy')
+        self.gan.compile(optimizer=custom_adam, loss='binary_crossentropy')
 
     def train(self):
         real_data = self.sample_real_data()
@@ -212,10 +215,11 @@ if __name__ == "__main__":
 
     hyperparameters = {
         'training': {
-            'epochs': 10000,
+            'epochs': 100,
             'batch_size': 128,
-            'save_frequency': 100,
+            'save_frequency': 1,
             'update_ratio_critic': 5,
+            'learning_rate': 0.001,
         },
         'network': {
             'latent_dim': 100,
@@ -223,7 +227,7 @@ if __name__ == "__main__":
             'layers_disc': [11, 29, 11, 1],
         },
         'distributions': {
-            'mean': 21,
+            'mean': 5,
             'variance': 1,
             'target_dist': 'gaussian',
             'input_dist': 'uniform',
@@ -232,7 +236,7 @@ if __name__ == "__main__":
             'plot_size': 10000,
             'n_bins': 100,
             #'results_path': 'results/2-tests/1-gan/1-vanilla_gan_1d/0-tests/',
-            'results_path': 'results/2-tests/1-gan/1-vanilla_gan_1d/1-epochs=10K/',
+            'results_path': 'results/2-tests/a_vanilla_gan_1d/',
         },
     }
 

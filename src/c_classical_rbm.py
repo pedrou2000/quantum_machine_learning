@@ -1,20 +1,22 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from tensorflow.keras.datasets import mnist
+import tensorflow as tf
 
 class ClassicalRBM:
-    def __init__(self, num_visible, num_hidden, epochs=50, lr=0.1, lr_decay=0.1, epoch_drop=None, momentum=0, batch_size=None):
-        self.num_visible = num_visible
-        self.num_hidden = num_hidden
-        self.epochs = epochs
-        self.lr = lr
-        self.lr_decay = lr_decay
-        self.epoch_drop = epoch_drop
-        self.momentum = momentum
-        self.batch_size = batch_size
-        self.weights = np.random.normal(0, 0.1, (num_visible, num_hidden))
-        self.visible_biases = np.zeros(num_visible)
-        self.hidden_biases = np.zeros(num_hidden)
+    def __init__(self, hyperparameters):
+        self.num_visible = hyperparameters['network']['num_visible']
+        self.num_hidden = hyperparameters['network']['num_hidden']
+        self.epochs = hyperparameters['training']['epochs']
+        self.lr = hyperparameters['training']['lr']
+        self.lr_decay = hyperparameters['training']['lr_decay']
+        self.epoch_drop = hyperparameters['training']['epoch_drop']
+        self.momentum = hyperparameters['training']['momentum']
+        self.batch_size = hyperparameters['training']['batch_size']
+        self.verbose = hyperparameters['training']['verbose']
+        self.weights = np.random.normal(0, 0.1, (self.num_visible, self.num_hidden))
+        self.visible_biases = np.zeros(self.num_visible)
+        self.hidden_biases = np.zeros(self.num_hidden)
 
     def sigmoid(self, x):
         return 1 / (1 + np.exp(-x))
@@ -58,7 +60,8 @@ class ClassicalRBM:
                 total_error += np.mean((sample - visible_sample) ** 2)
 
             # Print the mean squared error for the current epoch
-            print(f"Epoch {epoch + 1}/{self.epochs}, Mean Squared Error: {total_error / len(training_data)}")
+            if self.verbose:
+                print(f"Epoch {epoch + 1}/{self.epochs}, Mean Squared Error: {total_error / len(training_data)}")
 
             # Decay the learning rate
             if self.epoch_drop and (epoch + 1) % self.epoch_drop == 0:
@@ -76,6 +79,13 @@ class ClassicalRBM:
 
         return generated_visible_sample
 
+    def generate_samples(self, n_samples):
+        samples = [self.generate_sample() for _ in range(n_samples)]
+        samples_array = np.array(samples)
+        samples_tensor = tf.convert_to_tensor(samples_array)
+        return samples_tensor
+
+
 
 def preprocess_data(data):
     data = data / 255.0
@@ -83,36 +93,47 @@ def preprocess_data(data):
     data = data.reshape(-1, 784)
     return data
 
-def main():
-    # Load MNIST dataset
+def load_mnist(n_images):
     (x_train, y_train), (_, _) = mnist.load_data()
+    return x_train[0:n_images]
 
-    # Create an instance of the ClassicalRBM class
-    n_images = 10
-    n_epochs = 10
-    lr = 0.1
-    num_visible = 784
-    num_hidden = 20
-    folder_path = 'results/2-tests/2-rbm/'
-
-    # x_train = x_train_zero[0:n_images]
-    x_train = x_train[0:n_images]
-
-    training_data = preprocess_data(x_train)
-
-
-    rbm = ClassicalRBM(num_visible, num_hidden, epochs=n_epochs, lr=lr)
-    rbm.train(training_data)
-
-    # Generate a new image using the generate_sample method
-    new_image = rbm.generate_sample()
-
+def generate_image(sample, hyperparameters):
     # Display the generated image
-    new_image = new_image.reshape(28, 28)
+    new_image = sample.reshape(28, 28)
     plt.imshow(new_image, cmap='gray')
-    plt.savefig(f'{folder_path}epochs_{n_epochs}-n_images_{n_images}-lr_{lr}.png')
+    plt.savefig(f'{hyperparameters["plotting"]["folder_path"]}epochs_{hyperparameters["training"]["epochs"]}-n_images_{hyperparameters["training"]["n_images"]}-lr_{hyperparameters["training"]["lr"]}.png')
     plt.close()
 
 
+
+def main(hyperparameters):
+    training_data = load_mnist(hyperparameters['training']['n_images'])
+    training_data = preprocess_data(training_data)
+
+    rbm = ClassicalRBM(hyperparameters=hyperparameters)
+    rbm.train(training_data)
+    new_sample = rbm.generate_sample()
+
+    generate_image(new_sample, hyperparameters)
+
 if __name__ == "__main__":
-    main()
+    hyperparameters = {
+        'network': {
+            'num_visible': 784,
+            'num_hidden': 20
+        },
+        'training': {
+            'epochs': 15,
+            'lr': 0.1,
+            'lr_decay': 0.1,
+            'epoch_drop': None,
+            'momentum': 0,
+            'batch_size': None,
+            'n_images': 10,
+            'verbose': True,
+        },
+        'plotting': {
+            'folder_path': 'results/2-tests/2-rbm/'
+        }
+    }
+    main(hyperparameters=hyperparameters)

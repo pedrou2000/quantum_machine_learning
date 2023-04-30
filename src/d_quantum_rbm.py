@@ -8,19 +8,19 @@ import matplotlib.pyplot as plt
 from tensorflow.keras.datasets import mnist
 
 class QuantumRBM:
-    def __init__(self, num_visible, num_hidden, qpu=False, epochs=50, lr=0.1, lr_decay=0.1, epoch_drop=None, momentum=0, batch_size=None):
-        self.num_visible = num_visible
-        self.num_hidden = num_hidden
-        self.qpu = qpu
-        self.epochs = epochs
-        self.lr = lr
-        self.lr_decay = lr_decay
-        self.epoch_drop = epoch_drop
-        self.momentum = momentum
-        self.batch_size = batch_size
-        self.weights = np.random.normal(0, 0.1, (num_visible, num_hidden))
-        self.visible_biases = np.zeros(num_visible)
-        self.hidden_biases = np.zeros(num_hidden)
+    def __init__(self, hyperparameters):
+        self.num_visible = hyperparameters['network']['num_visible']
+        self.num_hidden = hyperparameters['network']['num_hidden']
+        self.qpu = hyperparameters['network']['qpu']
+        self.epochs = hyperparameters['training']['epochs']
+        self.lr = hyperparameters['training']['lr']
+        self.lr_decay = hyperparameters['training']['lr_decay']
+        self.epoch_drop = hyperparameters['training']['epoch_drop']
+        self.momentum = hyperparameters['training']['momentum']
+        self.batch_size = hyperparameters['training']['batch_size']
+        self.weights = np.random.normal(0, 0.1, (self.num_visible, self.num_hidden))
+        self.visible_biases = np.zeros(self.num_visible)
+        self.hidden_biases = np.zeros(self.num_hidden)
 
     def create_visible_hamiltonian(self, visible_biases, weights, hidden_biases):
         hamiltonian = 0
@@ -129,53 +129,65 @@ class QuantumRBM:
 
         return generated_visible_sample
 
+
 def preprocess_data(data):
     data = data / 255.0
     data = (data > 0.5).astype(int)
     data = data.reshape(-1, 784)
     return data
 
-
-
-def main():
-    # Load MNIST dataset
-
-    # Create an instance of the QuantumRBM class
-    n_images = 2
-    n_epochs = 2
-    qpu = False 
-    lr = 0.1
-    num_visible = 784
-    num_hidden = 20
-    folder_path = 'results/2-tests/3-qrbm/'
-
-
+def load_mnist(n_images, digits=None):
     (x_train, y_train), (_, _) = mnist.load_data()
+    
+    if digits is not None:
+        digit_indices = np.isin(y_train, digits)
+        x_train = x_train[digit_indices]
+        y_train = y_train[digit_indices]
+    
+    return x_train[:n_images]
 
-    # Filter images and labels for digit 0
-    zero_indices = np.where((y_train == 0) | (y_train == 1))
-    x_train_zero = x_train[zero_indices]
-    y_train_zero = y_train[zero_indices]
-
-    x_train = x_train_zero[0:n_images]
-
-
-    # Preprocess the data
-    training_data = preprocess_data(x_train)
-
-    rbm = QuantumRBM(num_visible, num_hidden, epochs=n_epochs, lr=lr, lr_decay=0.1, epoch_drop=10, qpu=qpu)
-    rbm.train(training_data)
-
-    # Generate a new image using the generate_sample method
-    generated_sample = rbm.generate_sample()
-
+def generate_image(sample, hyperparameters):
     # Display the generated image
-    # Reshape the visible layer to a 2D image
-    new_image = generated_sample.reshape(28, 28)
+    new_image = sample.reshape(28, 28)
     plt.imshow(new_image, cmap='gray')
-    plt.savefig(f'{folder_path}qpu_{qpu}-epochs_{n_epochs}-n_images_{n_images}-lr_{lr}.png')
+    
+    model_type = hyperparameters['network']['qpu']
+    folder_path = hyperparameters['plotting']['folder_path']
+    
+    file_name = f'{folder_path}qpu_{model_type}-epochs_{hyperparameters["training"]["epochs"]}-n_images_{hyperparameters["training"]["n_images"]}-lr_{hyperparameters["training"]["lr"]}.png'
+    
+    plt.savefig(file_name)
     plt.close()
 
 
+def main(hyperparameters):
+    training_data = load_mnist(hyperparameters['training']['n_images'], digits=[0, 1])
+    training_data = preprocess_data(training_data)
+
+    qrbm = QuantumRBM(hyperparameters=hyperparameters)
+    qrbm.train(training_data)
+    new_sample = qrbm.generate_sample()
+
+    generate_image(new_sample, hyperparameters)
+
 if __name__ == "__main__":
-    main()
+    hyperparameters = {
+        'network': {
+            'num_visible': 784,
+            'num_hidden': 20,
+            'qpu': False
+        },
+        'training': {
+            'epochs': 2,
+            'lr': 0.1,
+            'lr_decay': 0.1,
+            'epoch_drop': 10,
+            'momentum': 0,
+            'batch_size': None,
+            'n_images': 2
+        },
+        'plotting': {
+            'folder_path': 'results/2-tests/d_quantum_rbm/'
+        }
+    }
+    main(hyperparameters=hyperparameters)
