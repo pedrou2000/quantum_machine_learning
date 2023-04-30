@@ -36,6 +36,8 @@ class ClassicalRBM:
         return np.random.binomial(1, visible_probs)
 
     def train(self, training_data, len_x=1, len_y=1):
+        self.errors = []
+
         for epoch in range(self.epochs):
             # Shuffle the training data for each epoch
             np.random.shuffle(training_data)
@@ -59,13 +61,18 @@ class ClassicalRBM:
                 # Update the total error
                 total_error += np.mean((sample - visible_sample) ** 2)
 
+            total_error /= len(training_data)
+            self.errors.append(total_error)
+
             # Print the mean squared error for the current epoch
-            if self.verbose:
-                print(f"Epoch {epoch + 1}/{self.epochs}, Mean Squared Error: {total_error / len(training_data)}")
+            if self.verbose:    
+                print(f"Epoch {epoch + 1}/{self.epochs}, Mean Squared Error: {total_error}")
 
             # Decay the learning rate
             if self.epoch_drop and (epoch + 1) % self.epoch_drop == 0:
                 self.lr *= 1 - self.lr_decay
+        
+        return sum(self.errors) / len(self.errors)
 
     def generate_sample(self):
         # Create a random initial visible state

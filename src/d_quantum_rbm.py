@@ -6,6 +6,7 @@ from neal import SimulatedAnnealingSampler
 from sklearn.preprocessing import MinMaxScaler
 import matplotlib.pyplot as plt
 from tensorflow.keras.datasets import mnist
+import tensorflow as tf
 
 class QuantumRBM:
     def __init__(self, hyperparameters):
@@ -18,6 +19,7 @@ class QuantumRBM:
         self.epoch_drop = hyperparameters['training']['epoch_drop']
         self.momentum = hyperparameters['training']['momentum']
         self.batch_size = hyperparameters['training']['batch_size']
+        self.verbose = hyperparameters['training']['verbose']
         self.weights = np.random.normal(0, 0.1, (self.num_visible, self.num_hidden))
         self.visible_biases = np.zeros(self.num_visible)
         self.hidden_biases = np.zeros(self.num_hidden)
@@ -48,7 +50,7 @@ class QuantumRBM:
 
         return hamiltonian, visible_variables
 
-    def quantum_annealing(self, hamiltonian):
+    def quantum_annealing(self, hamiltonian, num_reads=1):
         model = hamiltonian.compile()
         bqm = model.to_bqm()
 
@@ -57,29 +59,40 @@ class QuantumRBM:
         else:
             sampler = SimulatedAnnealingSampler()
 
-        sampleset = sampler.sample(bqm, num_reads=1)
-        solution = sampleset.first.sample
+        sampleset = sampler.sample(bqm, num_reads=num_reads)
+        solutions = []
 
-        solution_list = [(k, v) for k, v in solution.items()]
-        solution_list.sort(key=lambda tup: int(tup[0]))
-        solution_list_final = [v for (k, v) in solution_list]
+        for sample in sampleset.record:
+            solution = sample[0]
+            num_occurrences = sample[2]
+            solution_list = [(k, v) for k, v in enumerate(solution)]
+            solution_list.sort(key=lambda tup: int(tup[0]))
+            solution_list_final = [v for (k, v) in solution_list]
 
-        return solution_list_final
+            for _ in range(num_occurrences):
+                solutions.append(solution_list_final)
 
-    def sample_hidden(self, visible_vector):
+        if len(solutions) == 1:
+            return solutions[0]
+        else:
+            return solutions
+
+
+    def sample_hidden(self, visible_vector, num_reads=1):
         hamiltonian, hidden_variables = self.create_visible_hamiltonian(visible_vector, self.weights, self.hidden_biases)
-        hidden_sample = self.quantum_annealing(hamiltonian)
-        return hidden_sample
+        hidden_samples = self.quantum_annealing(hamiltonian, num_reads=num_reads)
+        return hidden_samples
 
-    def sample_visible(self, hidden_vector):
+    def sample_visible(self, hidden_vector, num_reads=1):
         hamiltonian, visible_variables = self.create_hidden_hamiltonian(self.visible_biases, self.weights, hidden_vector)
-        visible_sample = self.quantum_annealing(hamiltonian)
-        return visible_sample
+        visible_samples = self.quantum_annealing(hamiltonian, num_reads=num_reads)
+        return visible_samples
 
     def sigmoid(self, x):
         return 1 / (1 + np.exp(-x))
 
     def train(self, training_data, len_x=1, len_y=1):
+        self.errors = []
 
         for epoch in range(self.epochs):
             # Shuffle the training data for each epoch
@@ -107,12 +120,18 @@ class QuantumRBM:
                 # Update the total error
                 total_error += np.mean((sample - visible_sample) ** 2)
 
+            total_error /= len(training_data)
+            self.errors.append(total_error)
+
             # Print the mean squared error for the current epoch
-            print(f"Epoch {epoch + 1}/{self.epochs}, Mean Squared Error: {total_error / len(training_data)}")
+            if self.verbose:
+                print(f"Epoch {epoch + 1}/{self.epochs}, Mean Squared Error: {total_error}")
 
             # Decay the learning rate
             if self.epoch_drop and (epoch + 1) % self.epoch_drop == 0:
                 self.lr *= 1 - self.lr_decay
+
+        return sum(self.errors) / len(self.errors)
 
     def generate_sample(self):
         # Create a random initial visible state
@@ -128,6 +147,29 @@ class QuantumRBM:
         generated_visible_sample = (generated_visible_probs > 0.5).astype(int)
 
         return generated_visible_sample
+
+    def generate_samples(self, n_samples):
+        # Create a random initial visible state
+        initial_state = np.random.randint(2, size=self.num_visible)
+
+        # Sample the hidden layer based on the initial visible state
+        hidden_samples = self.sample_hidden(initial_state, num_reads=n_samples)
+    
+        generated_visible_samples = []
+
+        for hidden_sample in hidden_samples:
+            # Compute the probabilities for the generated visible layer
+            generated_visible_probs = self.sigmoid(self.visible_biases + np.dot(hidden_sample, self.weights.T))
+
+            # Threshold the probabilities to create a binary image
+            generated_visible_sample = (generated_visible_probs > 0.5).astype(int)
+            generated_visible_samples.append(generated_visible_sample)
+
+        samples_array = np.array(generated_visible_samples)
+        samples_tensor = tf.convert_to_tensor(samples_array)
+
+        return samples_tensor
+
 
 
 def preprocess_data(data):
@@ -175,16 +217,17 @@ if __name__ == "__main__":
         'network': {
             'num_visible': 784,
             'num_hidden': 20,
-            'qpu': False
+            'qpu': False,
         },
         'training': {
-            'epochs': 2,
+            'epochs': 3,
             'lr': 0.1,
             'lr_decay': 0.1,
             'epoch_drop': 10,
             'momentum': 0,
             'batch_size': None,
-            'n_images': 2
+            'n_images': 1,
+            'verbose': True,
         },
         'plotting': {
             'folder_path': 'results/2-tests/d_quantum_rbm/'
