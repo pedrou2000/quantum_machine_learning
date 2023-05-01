@@ -52,6 +52,19 @@ class ClassicalQAAAN(GAN):
         data = (data > 0).astype(int)
         return data
     
+    def reparameterize_vector(self, z, alpha=4):
+        zeta = np.zeros_like(z, dtype=float)
+        u = np.random.uniform(0, 1, size=z.shape)
+        idx = z == 1
+        zeta[idx] = 1 - (1 / alpha) * np.log(1 - (1 - np.exp(-2 * alpha)) * u[idx])
+        zeta[~idx] = -1
+        return zeta
+    
+    def generate_prior(self):
+        rbm_prior = self.rbm.generate_samples(self.batch_size)
+        rbm_prior = self.reparameterize_vector(rbm_prior)
+        return rbm_prior
+
     def train(self):
         real_data = self.sample_real_data()
         real_labels = np.ones((self.batch_size, 1))
@@ -61,6 +74,8 @@ class ClassicalQAAAN(GAN):
         d_loss_fake_total = 0
         g_loss_total = 0
         rbm_loss_total = 0
+        
+        rbm_prior = self.generate_prior()
 
         for epoch in range(self.epochs):
 
@@ -70,22 +85,20 @@ class ClassicalQAAAN(GAN):
                 d_loss_real = self.discriminator.train_on_batch(real_data, real_labels)
 
                 # Train discriminator on generated data
-                rbm_prior = self.rbm.generate_samples(self.batch_size)
                 generated_data = self.generator.predict(rbm_prior, verbose=0)
                 d_loss_fake = self.discriminator.train_on_batch(generated_data, fake_labels)
 
             # RBM Training
-            if epoch % 1 == 0:
+            if epoch % 2 == 0:
                 for _ in range(self.update_ratios['rbm']):
-                    feature_layer_output = self.feature_layer_model.predict(real_data[:1], verbose=0)
+                    feature_layer_output = self.feature_layer_model.predict(real_data[:5], verbose=0)
                     rbm_input = self.preprocess_rbm_input(feature_layer_output)
-                    rbm_loss = self.rbm.train(rbm_input)  
-                    # rbm_prior = self.rbm.generate_samples(self.batch_size)
+                    rbm_loss = self.rbm.train(rbm_input, batch_size=1)  
+                    rbm_prior = self.generate_prior()
 
 
             # Generator Training
             for _ in range(self.update_ratios['generator']):
-                rbm_prior = self.rbm.generate_samples(self.batch_size)
                 g_loss = self.gan.train_on_batch(rbm_prior, real_labels)
 
             d_loss_real_total += d_loss_real
@@ -141,45 +154,40 @@ def simple_main(hyperparameters):
     gan.plot_and_save()
 
 def complex_main(hyperparameters):
-    different_update_ratios = [1,3,5]
+    feature_layer_sizes = [1, 5, 10, 20]
+    num_hiddens = feature_layer_sizes
+    hyperparameters['hyperparameters_gan']['plotting']['results_path'] = 'results/2-tests/e_vanilla_qaaan/f_classical_different_rbm_sizes/'
 
-    for i in different_update_ratios:
-        for j in different_update_ratios:
-            for k in different_update_ratios:
-                update_ratios = {
-                    'discriminator': i,
-                    'generator': j,
-                    'rbm': k,
-                }
+    for i in feature_layer_sizes:
+        hyperparameters['hyperparameters_qaaan']['feature_layer_size'] = i
+        hyperparameters['hyperparameters_gan']['network']['latent_dim'] = i
+        hyperparameters['hyperparameters_rbm']['network']['num_visible'] = i
+        for j in num_hiddens:
+            hyperparameters['hyperparameters_rbm']['network']['num_hidden'] = j 
 
-                hyperparameters['hyperparameters_qaaan']['update_ratios'] = update_ratios
-                
-                qaaan = ClassicalQAAAN(hyperparameters)
-                qaaan.train()
-                qaaan.plot_and_save()
+            gan = ClassicalQAAAN(hyperparameters)
+            gan.train()
+            gan.plot_and_save()
 
-    gan = GAN(hyperparameters['hyperparameters_gan'])
-    gan.train()
-    gan.plot_and_save()
-
+    
 if __name__ == "__main__":
     one_run = True
 
     hyperparameters_qaaan = {
-        'feature_layer_size': 11,
+        'feature_layer_size': 5,
         'update_ratios': {
             'discriminator': 1,
             'generator': 1,
             'rbm': 1,
         },
-        'rbm_type': 'quantum',  # Can be classical, simulated or quantum.
+        'rbm_type': 'classical',  # Can be classical, simulated or quantum.
     }
 
     hyperparameters_gan = {
         'training': {
-            'epochs': 1,
+            'epochs': 1000,
             'batch_size': 100,
-            'save_frequency': 1,
+            'save_frequency': 10,
             'update_ratio_critic': hyperparameters_qaaan['update_ratios']['discriminator'],
             'learning_rate': 0.001,
         },
@@ -189,7 +197,7 @@ if __name__ == "__main__":
             'layers_disc': [11, 29, 11, 1],
         },
         'distributions': {
-            'mean': 1,
+            'mean': 0,
             'variance': 1,
             'target_dist': 'gaussian',
             'input_dist': 'uniform',
@@ -197,18 +205,18 @@ if __name__ == "__main__":
         'plotting': {
             'plot_size': 10000,
             'n_bins': 100,
-            'results_path': 'results/2-tests/e_vanilla_qaaan/c_initial_quantum_tests/',
+            'results_path': 'results/2-tests/e_vanilla_qaaan/e_quantum_tests/' + hyperparameters_qaaan['rbm_type'] + '/',
         },
     }
 
     hyperparameters_rbm = {
         'network': {
             'num_visible': hyperparameters_qaaan['feature_layer_size'],
-            'num_hidden': 20,
+            'num_hidden': 5,
             'qpu': True if hyperparameters_qaaan['rbm_type']=='quantum' else False,
         },
         'training': {
-            'epochs': 1,
+            'epochs': 10,
             'lr': 0.001,
             'lr_decay': 0.1,
             'epoch_drop': None,

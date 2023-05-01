@@ -7,6 +7,8 @@ from sklearn.preprocessing import MinMaxScaler
 import matplotlib.pyplot as plt
 from tensorflow.keras.datasets import mnist
 import tensorflow as tf
+import concurrent.futures
+
 
 class QuantumRBM:
     def __init__(self, hyperparameters):
@@ -91,7 +93,7 @@ class QuantumRBM:
     def sigmoid(self, x):
         return 1 / (1 + np.exp(-x))
 
-    def train(self, training_data, len_x=1, len_y=1):
+    def train(self, training_data, batch_size=10):
         self.errors = []
 
         for epoch in range(self.epochs):
@@ -99,26 +101,38 @@ class QuantumRBM:
             np.random.shuffle(training_data)
             total_error = 0
 
-            for sample in training_data:
-                # Compute the probabilities for the hidden layer
-                hidden_probs = self.sigmoid(self.hidden_biases + np.dot(sample, self.weights))
-                
-                # Sample the hidden layer based on visible layer sample
-                hidden_sample = self.sample_hidden(sample)
-                
-                # Compute the probabilities for the visible layer
-                visible_probs = self.sigmoid(self.visible_biases + np.dot(hidden_sample, self.weights.T))
-                
-                # Sample the visible layer based on hidden layer sample
-                visible_sample = self.sample_visible(hidden_sample)
+            num_batches = len(training_data) // batch_size
+            for batch_idx in range(num_batches):
+                batch_start = batch_idx * batch_size
+                batch_end = (batch_idx + 1) * batch_size
+                batch = training_data[batch_start:batch_end]
 
-                # Update the weights and biases
-                self.weights += self.lr * (np.outer(sample, hidden_probs) - np.outer(visible_sample, hidden_sample))
-                self.visible_biases += self.lr * (sample - visible_sample)
-                self.hidden_biases += self.lr * (hidden_probs - hidden_sample)
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    # Sample the hidden layer based on visible layer samples in parallel
+                    hidden_samples_futures = [executor.submit(self.sample_hidden, sample, num_reads=1) for sample in batch]
+                    hidden_samples = [future.result() for future in hidden_samples_futures]
+
+                    # Sample the visible layer based on hidden layer samples in parallel
+                    visible_samples_futures = [executor.submit(self.sample_visible, hidden_sample, num_reads=1) for hidden_sample in hidden_samples]
+                    visible_samples = [future.result() for future in visible_samples_futures]
                 
-                # Update the total error
-                total_error += np.mean((sample - visible_sample) ** 2)
+                # print('visible_samples.shape', visible_samples[:3])
+                # print('hidden_samples.shape', hidden_samples[:3])
+
+                for sample, hidden_sample, visible_sample in zip(batch, hidden_samples, visible_samples):
+                    # Compute the probabilities for the hidden layer
+                    hidden_probs = self.sigmoid(self.hidden_biases + np.dot(sample, self.weights))
+
+                    # Compute the probabilities for the visible layer
+                    visible_probs = self.sigmoid(self.visible_biases + np.dot(hidden_sample, self.weights.T))
+
+                    # Update the weights and biases
+                    self.weights += self.lr * (np.outer(sample, hidden_probs) - np.outer(visible_sample, hidden_sample))
+                    self.visible_biases += self.lr * (sample - visible_sample)
+                    self.hidden_biases += self.lr * (hidden_probs - hidden_sample)
+
+                    # Update the total error
+                    total_error += np.mean((sample - visible_sample) ** 2)
 
             total_error /= len(training_data)
             self.errors.append(total_error)
@@ -217,16 +231,16 @@ if __name__ == "__main__":
         'network': {
             'num_visible': 784,
             'num_hidden': 20,
-            'qpu': False,
+            'qpu': True,
         },
         'training': {
-            'epochs': 3,
+            'epochs': 2,
             'lr': 0.1,
             'lr_decay': 0.1,
             'epoch_drop': 10,
             'momentum': 0,
             'batch_size': None,
-            'n_images': 1,
+            'n_images': 10,
             'verbose': True,
         },
         'plotting': {
