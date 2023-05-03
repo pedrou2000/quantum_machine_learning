@@ -60,9 +60,12 @@ class ClassicalQAAAN(GAN):
         zeta[~idx] = -1
         return zeta
     
-    def generate_prior(self):
-        rbm_prior = self.rbm.generate_samples(self.batch_size)
-        rbm_prior = self.reparameterize_vector(rbm_prior)
+    def generate_prior(self, n_samples=None):
+        if n_samples is None:
+            rbm_prior = self.rbm.generate_samples(self.batch_size)
+        else:
+            rbm_prior = self.rbm.generate_samples(n_samples)
+        rbm_prior = self.reparameterize_vector(rbm_prior, alpha=1)
         return rbm_prior
 
     def train(self):
@@ -85,20 +88,23 @@ class ClassicalQAAAN(GAN):
                 d_loss_real = self.discriminator.train_on_batch(real_data, real_labels)
 
                 # Train discriminator on generated data
+                rbm_prior = self.generate_prior()
                 generated_data = self.generator.predict(rbm_prior, verbose=0)
                 d_loss_fake = self.discriminator.train_on_batch(generated_data, fake_labels)
 
             # RBM Training
-            if epoch % 2 == 0:
+            if epoch % 1 == 0:
                 for _ in range(self.update_ratios['rbm']):
-                    feature_layer_output = self.feature_layer_model.predict(real_data[:5], verbose=0)
-                    rbm_input = self.preprocess_rbm_input(feature_layer_output)
+                    feature_layer_output = self.feature_layer_model.predict(real_data[:], verbose=0)
+                    # rbm_input = self.preprocess_rbm_input(feature_layer_output)
+                    rbm_input = feature_layer_output
                     rbm_loss = self.rbm.train(rbm_input, batch_size=1)  
-                    rbm_prior = self.generate_prior()
+                    # rbm_prior = self.generate_prior()
 
 
             # Generator Training
             for _ in range(self.update_ratios['generator']):
+                rbm_prior = self.generate_prior()
                 g_loss = self.gan.train_on_batch(rbm_prior, real_labels)
 
             d_loss_real_total += d_loss_real
@@ -124,6 +130,61 @@ class ClassicalQAAAN(GAN):
                 g_loss_total = 0
                 rbm_loss_total = 0
 
+    def train_2(self):
+        real_data = self.sample_real_data()
+        real_labels = np.ones((self.batch_size, 1))
+        fake_labels = np.zeros((self.batch_size, 1))
+        k = 300
+
+        # Train Simple GAN First
+        for epoch in range(k):
+            for _ in range(self.update_ratio_critic):
+                # Train discriminator on real data
+                d_loss_real = self.discriminator.train_on_batch(real_data, real_labels)
+
+                # Train discriminator on generated data
+                noise = self.sample_noise()
+                generated_data = self.generator.predict(noise, verbose=0)
+                fake_labels = np.zeros((self.batch_size, 1))
+                d_loss_fake = self.discriminator.train_on_batch(generated_data, fake_labels)
+
+            # Train generator
+            noise = self.sample_noise()
+            g_loss = self.gan.train_on_batch(noise, real_labels)
+        
+        # Throw away the trained Generator 
+        self.generator = self.create_generator()
+        self.gan = self.create_gan()
+        self.compile_models()
+
+        # Train the RBM which will serve as Prior
+        feature_layer_output = self.feature_layer_model.predict(real_data[:], verbose=0)
+        # rbm_input = self.preprocess_rbm_input(feature_layer_output)
+        rbm_input = feature_layer_output
+        rbm_loss = self.rbm.train(rbm_input, batch_size=1)  
+
+        # Train the Generator Alone against Discriminator
+        for _ in range(k):
+            noise = self.sample_noise()
+            g_loss = self.gan.train_on_batch(noise, real_labels)
+
+        # Train Complete GAN with RBM as Prior
+        for epoch in range(k):
+            for _ in range(self.update_ratio_critic):
+                # Train discriminator on real data
+                d_loss_real = self.discriminator.train_on_batch(real_data, real_labels)
+
+                # Train discriminator on generated data
+                rbm_prior = self.generate_prior()
+                generated_data = self.generator.predict(rbm_prior, verbose=0)
+                fake_labels = np.zeros((self.batch_size, 1))
+                d_loss_fake = self.discriminator.train_on_batch(generated_data, fake_labels)
+
+            # Train generator
+            rbm_prior = self.generate_prior()
+            g_loss = self.gan.train_on_batch(rbm_prior, real_labels)
+
+
     def save_parameters_to_json(self, folder_path):
         parameters = {
             'timestamp': time.strftime('%Y-%m-%d %H:%M:%S'),
@@ -145,6 +206,40 @@ class ClassicalQAAAN(GAN):
 
         plt.savefig(f'{folder_path}losses.png', dpi=300)
         plt.close()
+
+    def plot_results(self, folder_path):
+        # noise = self.sample_noise(plot=True)
+        # generated_data = self.generator.predict(noise, verbose=0).flatten()
+        rbm_prior = self.generate_prior(n_samples=10000)
+        generated_data = self.generator.predict(rbm_prior, verbose=0).flatten()
+
+        plt.hist(generated_data, bins=self.n_bins, alpha=0.6, label='Generated Data', density=True)
+        plt.ylim(0, 1)
+
+        # Plot PDFs
+        x_values = np.linspace(self.mean - 4 * np.sqrt(self.variance), self.mean + 4 * np.sqrt(self.variance), 1000)
+
+        if self.target_dist == "gaussian":
+            pdf_values = norm.pdf(x_values, loc=self.mean, scale=np.sqrt(self.variance))
+        elif self.target_dist == "uniform":
+            lower_bound = self.mean
+            upper_bound = self.variance
+            scale = upper_bound - lower_bound
+            pdf_values = uniform.pdf(x_values, loc=self.mean, scale=scale)
+        elif self.target_dist == "cauchy":
+            pdf_values = cauchy.pdf(x_values, loc=self.mean, scale=np.sqrt(self.variance))
+        elif self.target_dist == "pareto":
+            pdf_values = pareto.pdf(x_values, b=self.mean, scale=np.sqrt(self.variance))
+
+        pdf_values = pdf_values / (pdf_values.sum() * np.diff(x_values)[0])  # normalize the PDF
+
+        plt.plot(x_values, pdf_values, label="Real PDF")
+
+        plt.legend()
+
+        plt.savefig(f'{folder_path}histogram.png', dpi=300)
+        plt.close()
+
 
 
 
@@ -174,9 +269,9 @@ if __name__ == "__main__":
     one_run = True
 
     hyperparameters_qaaan = {
-        'feature_layer_size': 5,
+        'feature_layer_size': 20,
         'update_ratios': {
-            'discriminator': 1,
+            'discriminator': 5,
             'generator': 1,
             'rbm': 1,
         },
@@ -185,7 +280,7 @@ if __name__ == "__main__":
 
     hyperparameters_gan = {
         'training': {
-            'epochs': 1000,
+            'epochs': 500,
             'batch_size': 100,
             'save_frequency': 10,
             'update_ratio_critic': hyperparameters_qaaan['update_ratios']['discriminator'],
@@ -197,7 +292,7 @@ if __name__ == "__main__":
             'layers_disc': [11, 29, 11, 1],
         },
         'distributions': {
-            'mean': 0,
+            'mean': 1,
             'variance': 1,
             'target_dist': 'gaussian',
             'input_dist': 'uniform',
@@ -205,18 +300,18 @@ if __name__ == "__main__":
         'plotting': {
             'plot_size': 10000,
             'n_bins': 100,
-            'results_path': 'results/2-tests/e_vanilla_qaaan/e_quantum_tests/' + hyperparameters_qaaan['rbm_type'] + '/',
+            'results_path': 'results/2-tests/e_vanilla_qaaan/' + hyperparameters_qaaan['rbm_type'] + '/',
         },
     }
 
     hyperparameters_rbm = {
         'network': {
             'num_visible': hyperparameters_qaaan['feature_layer_size'],
-            'num_hidden': 5,
+            'num_hidden': 20,
             'qpu': True if hyperparameters_qaaan['rbm_type']=='quantum' else False,
         },
         'training': {
-            'epochs': 10,
+            'epochs': 1,
             'lr': 0.001,
             'lr_decay': 0.1,
             'epoch_drop': None,
