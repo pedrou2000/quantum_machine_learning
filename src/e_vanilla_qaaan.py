@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import os
 import time
 import json
-from scipy.stats import norm, uniform, cauchy, pareto
+from scipy.stats import norm, uniform, cauchy, pareto, beta
 from a_vanilla_gan_1d import *
 from c_classical_rbm import *
 from d_quantum_rbm import *
@@ -52,20 +52,30 @@ class ClassicalQAAAN(GAN):
         data = (data > 0).astype(int)
         return data
     
-    def reparameterize_vector(self, z, alpha=4):
+    def reparameterize_vector(self, z, reparam_type='paper', alpha=1, beta_alpha=0.5, beta_beta=0.5):
         zeta = np.zeros_like(z, dtype=float)
         u = np.random.uniform(0, 1, size=z.shape)
-        idx = z == 1
-        zeta[idx] = 1 - (1 / alpha) * np.log(1 - (1 - np.exp(-2 * alpha)) * u[idx])
-        zeta[~idx] = -1
+
+        if reparam_type == 'paper':
+            idx = z == 1
+            zeta[idx] = 1 - (1 / alpha) * np.log(1 - (1 - np.exp(-2 * alpha)) * u[idx])
+            zeta[~idx] = -1
+        elif reparam_type == 'beta':
+            mapped_samples = (z + 1) / 2
+            reparameterized_samples = beta.ppf(u, beta_alpha, beta_beta)
+            zeta = reparameterized_samples * 2 - 1
+        else:
+            raise ValueError("Invalid reparam_type. Accepted values are 'current' and 'beta'")
+
         return zeta
     
-    def generate_prior(self, n_samples=None):
+    def generate_prior(self, n_samples=None, n_batches = 1):
         if n_samples is None:
             rbm_prior = self.rbm.generate_samples(self.batch_size)
         else:
             rbm_prior = self.rbm.generate_samples(n_samples)
-        rbm_prior = self.reparameterize_vector(rbm_prior, alpha=1)
+        rbm_prior = self.reparameterize_vector(rbm_prior, reparam_type='paper', alpha=1)
+        # rbm_prior = self.reparameterize_vector(rbm_prior, reparam_type='beta')   
         return rbm_prior
 
     def train(self):
@@ -88,23 +98,23 @@ class ClassicalQAAAN(GAN):
                 d_loss_real = self.discriminator.train_on_batch(real_data, real_labels)
 
                 # Train discriminator on generated data
-                rbm_prior = self.generate_prior()
+                # rbm_prior = self.generate_prior()
                 generated_data = self.generator.predict(rbm_prior, verbose=0)
                 d_loss_fake = self.discriminator.train_on_batch(generated_data, fake_labels)
 
             # RBM Training
-            if epoch % 1 == 0:
+            if epoch % 10 == 0:
                 for _ in range(self.update_ratios['rbm']):
-                    feature_layer_output = self.feature_layer_model.predict(real_data[:], verbose=0)
-                    # rbm_input = self.preprocess_rbm_input(feature_layer_output)
-                    rbm_input = feature_layer_output
-                    rbm_loss = self.rbm.train(rbm_input, batch_size=1)  
-                    # rbm_prior = self.generate_prior()
+                    feature_layer_output = self.feature_layer_model.predict(real_data[:1], verbose=0)
+                    rbm_input = self.preprocess_rbm_input(feature_layer_output)
+                    # rbm_input = feature_layer_output
+                    rbm_loss = self.rbm.train(rbm_input, num_reads=100)  
+                    rbm_prior = self.generate_prior()
 
 
             # Generator Training
             for _ in range(self.update_ratios['generator']):
-                rbm_prior = self.generate_prior()
+                # rbm_prior = self.generate_prior()
                 g_loss = self.gan.train_on_batch(rbm_prior, real_labels)
 
             d_loss_real_total += d_loss_real
@@ -210,7 +220,7 @@ class ClassicalQAAAN(GAN):
     def plot_results(self, folder_path):
         # noise = self.sample_noise(plot=True)
         # generated_data = self.generator.predict(noise, verbose=0).flatten()
-        rbm_prior = self.generate_prior(n_samples=10000)
+        rbm_prior = self.generate_prior(n_samples=1000)
         generated_data = self.generator.predict(rbm_prior, verbose=0).flatten()
 
         plt.hist(generated_data, bins=self.n_bins, alpha=0.6, label='Generated Data', density=True)
@@ -280,7 +290,7 @@ if __name__ == "__main__":
 
     hyperparameters_gan = {
         'training': {
-            'epochs': 500,
+            'epochs': 100,
             'batch_size': 100,
             'save_frequency': 10,
             'update_ratio_critic': hyperparameters_qaaan['update_ratios']['discriminator'],

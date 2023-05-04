@@ -36,7 +36,7 @@ class ClassicalRBM:
         visible_probs = self.calc_prob_visible(hidden_vector)
         return np.random.binomial(1, visible_probs)
 
-    def train(self, training_data, batch_size=1):
+    def train(self, training_data, num_reads=1):
         self.errors = []
 
         for epoch in range(self.epochs):
@@ -44,35 +44,23 @@ class ClassicalRBM:
             np.random.shuffle(training_data)
             total_error = 0
 
-            num_batches = len(training_data) // batch_size
-            for batch_idx in range(num_batches):
-                batch_start = batch_idx * batch_size
-                batch_end = (batch_idx + 1) * batch_size
-                batch = training_data[batch_start:batch_end]
+            for sample in training_data:
+                # Sample the hidden layer based on visible layer samples
+                hidden_sample = self.sample_hidden(sample)
 
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    # Sample the hidden layer based on visible layer samples in parallel
-                    hidden_samples_futures = [executor.submit(self.sample_hidden, sample) for sample in batch]
-                    hidden_samples = [future.result() for future in hidden_samples_futures]
+                # Sample the visible layer based on hidden layer samples
+                visible_sample = self.sample_visible(hidden_sample)
 
-                    # Sample the visible layer based on hidden layer samples in parallel
-                    visible_samples_futures = [executor.submit(self.sample_visible, hidden_sample) for hidden_sample in hidden_samples]
-                    visible_samples = [future.result() for future in visible_samples_futures]
-                
-                # print('visible_samples.shape', visible_samples[:3])
-                # print('hidden_samples.shape', hidden_samples[:3])
+                # Compute the probabilities for the hidden layer
+                hidden_probs = self.calc_prob_hidden(sample)
 
-                for sample, hidden_sample, visible_sample in zip(batch, hidden_samples, visible_samples):
-                    # Compute the probabilities for the hidden layer
-                    hidden_probs = self.calc_prob_hidden(sample)
+                # Update the weights and biases
+                self.weights += self.lr * (np.outer(sample, hidden_probs) - np.outer(visible_sample, hidden_sample))
+                self.visible_biases += self.lr * (sample - visible_sample)
+                self.hidden_biases += self.lr * (hidden_probs - hidden_sample)
 
-                    # Update the weights and biases
-                    self.weights += self.lr * (np.outer(sample, hidden_probs) - np.outer(visible_sample, hidden_sample))
-                    self.visible_biases += self.lr * (sample - visible_sample)
-                    self.hidden_biases += self.lr * (hidden_probs - hidden_sample)
-
-                    # Update the total error
-                    total_error += np.mean((sample - visible_sample) ** 2)
+                # Update the total error
+                total_error += np.mean((sample - visible_sample) ** 2)
 
             total_error /= len(training_data)
             self.errors.append(total_error)
