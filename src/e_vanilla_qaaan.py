@@ -13,12 +13,14 @@ from d_quantum_rbm import *
 
 class ClassicalQAAAN(GAN):
     def __init__(self, hyperparameters):
-        self.feature_layer_size = hyperparameters['hyperparameters_qaaan']['feature_layer_size']
-        self.update_ratios = hyperparameters['hyperparameters_qaaan']['update_ratios']
-        self.rbm_type = hyperparameters['hyperparameters_qaaan']['rbm_type']
+        self.feature_layer_size = hyperparameters['hyperparameters_qaaan']['network']['feature_layer_size']
+        self.update_ratios = hyperparameters['hyperparameters_qaaan']['training']['update_ratios']
+        self.rbm_type = hyperparameters['hyperparameters_qaaan']['network']['rbm_type']
+        self.train_rbm_every_n = hyperparameters['hyperparameters_qaaan']['training']['train_rbm_every_n']
+        self.samples_train_rbm = hyperparameters['hyperparameters_qaaan']['training']['samples_train_rbm']
 
         super().__init__(hyperparameters['hyperparameters_gan'])
-        self.hyperparameters = hyperparameters 
+        self.hyperparameters = hyperparameters
 
         # Create a new model to extract intermediate layer output
         self.feature_layer_model = self.create_feature_layer_model(layer_index=-2)
@@ -69,14 +71,25 @@ class ClassicalQAAAN(GAN):
 
         return zeta
     
-    def generate_prior(self, n_samples=None, n_batches = 1):
+    def generate_prior(self, n_samples=None, n_batches=None):
         if n_samples is None:
-            rbm_prior = self.rbm.generate_samples(self.batch_size)
+            if n_batches is None:
+                total_samples = self.batch_size
+            else:
+                total_samples = self.batch_size * n_batches
         else:
-            rbm_prior = self.rbm.generate_samples(n_samples)
+            total_samples = n_samples
+
+        rbm_prior = self.rbm.generate_samples(total_samples)
         rbm_prior = self.reparameterize_vector(rbm_prior, reparam_type='paper', alpha=1)
-        # rbm_prior = self.reparameterize_vector(rbm_prior, reparam_type='beta')   
-        return rbm_prior
+
+        # If n_batches is specified, reshape the samples into a list of batches
+        if n_batches is not None:
+            batches = [rbm_prior[i * self.batch_size:(i + 1) * self.batch_size] for i in range(n_batches)]
+            return batches
+        else:
+            return rbm_prior
+
 
     def train(self):
         real_data = self.sample_real_data()
@@ -88,40 +101,45 @@ class ClassicalQAAAN(GAN):
         g_loss_total = 0
         rbm_loss_total = 0
         
-        rbm_prior = self.generate_prior()
+        rbm_prior_discriminator = self.generate_prior(n_batches=self.update_ratios['discriminator'])
 
         for epoch in range(self.epochs):
 
             # Discriminator Training
-            for _ in range(self.update_ratios['discriminator']):
+            for i in range(self.update_ratios['discriminator']):
                 # Train discriminator on real data
                 d_loss_real = self.discriminator.train_on_batch(real_data, real_labels)
 
                 # Train discriminator on generated data
-                # rbm_prior = self.generate_prior()
+                rbm_prior = rbm_prior_discriminator[i]
                 generated_data = self.generator.predict(rbm_prior, verbose=0)
                 d_loss_fake = self.discriminator.train_on_batch(generated_data, fake_labels)
 
             # RBM Training
-            if epoch % 10 == 0:
+            if self.train_rbm_every_n is None or epoch % self.train_rbm_every_n == 0: 
                 for _ in range(self.update_ratios['rbm']):
-                    feature_layer_output = self.feature_layer_model.predict(real_data[:1], verbose=0)
+                    # Generate Input for RBM Training
+                    random_indices = np.random.choice(len(real_data), self.samples_train_rbm, replace=False)
+                    feature_layer_output = self.feature_layer_model.predict(real_data[random_indices], verbose=0)
                     rbm_input = self.preprocess_rbm_input(feature_layer_output)
-                    # rbm_input = feature_layer_output
-                    rbm_loss = self.rbm.train(rbm_input, num_reads=100)  
-                    rbm_prior = self.generate_prior()
 
+                    rbm_loss = self.rbm.train(rbm_input, num_reads=100)  
+
+                    # Generate Training Data for Generator and Discriminator
+                    rbm_prior = self.generate_prior(n_batches=self.update_ratios['discriminator'] + self.update_ratios['generator'])
+                    rbm_prior_discriminator = rbm_prior[:self.update_ratios['discriminator']]
+                    rbm_prior_generator = rbm_prior[self.update_ratios['discriminator']:]
 
             # Generator Training
-            for _ in range(self.update_ratios['generator']):
-                # rbm_prior = self.generate_prior()
+            for i in range(self.update_ratios['generator']):
+                rbm_prior = rbm_prior_generator[i]
                 g_loss = self.gan.train_on_batch(rbm_prior, real_labels)
 
+            # Update Losses
             d_loss_real_total += d_loss_real
             d_loss_fake_total += d_loss_fake
             g_loss_total += g_loss
             rbm_loss_total += rbm_loss
-
 
             # Save losses
             if epoch % self.save_frequency == 0:
@@ -175,8 +193,8 @@ class ClassicalQAAAN(GAN):
 
         # Train the Generator Alone against Discriminator
         for _ in range(k):
-            noise = self.sample_noise()
-            g_loss = self.gan.train_on_batch(noise, real_labels)
+            rbm_prior = self.generate_prior()
+            g_loss = self.gan.train_on_batch(rbm_prior, real_labels)
 
         # Train Complete GAN with RBM as Prior
         for epoch in range(k):
@@ -274,32 +292,128 @@ def complex_main(hyperparameters):
             gan.train()
             gan.plot_and_save()
 
-    
+
+def create_hyperparameters_gan_2(hyperparameters_qaaan):
+    return {
+        'training': {
+            'epochs': hyperparameters_qaaan['total_epochs'],
+            'batch_size': hyperparameters_qaaan['batch_size'],
+            'save_frequency': hyperparameters_qaaan['save_frequency'],
+            'update_ratio_critic': hyperparameters_qaaan['update_ratios']['discriminator'],
+            'learning_rate': hyperparameters_qaaan['gan_learning_rate'],
+        },
+        'network': {
+            'latent_dim': hyperparameters_qaaan['feature_layer_size'],
+            'layers_gen': hyperparameters_qaaan['layers_generator'],
+            'layers_disc': hyperparameters_qaaan['layers_discriminator'],
+        },
+        'distributions': {
+            'mean': hyperparameters_qaaan['mean'],
+            'variance': hyperparameters_qaaan['variance'],
+            'target_dist': hyperparameters_qaaan['target_dist'],
+            'input_dist': hyperparameters_qaaan['input_dist'],
+        },
+        'plotting': {
+            'plot_size': hyperparameters_qaaan['plot_size'],
+            'n_bins': hyperparameters_qaaan['n_bins'],
+            'results_path': hyperparameters_qaaan['gan_results_path'],
+        },
+    }
+
+def create_hyperparameters_rbm_2(hyperparameters_qaaan):
+    return {
+        'network': {
+            'num_visible': hyperparameters_qaaan['feature_layer_size'],
+            'num_hidden': hyperparameters_qaaan['rbm_num_hidden'],
+            'qpu': hyperparameters_qaaan['qpu'],
+        },
+        'training': {
+            'epochs': hyperparameters_qaaan['rbm_epochs'],
+            'lr': hyperparameters_qaaan['rbm_learning_rate'],
+            'verbose': hyperparameters_qaaan['rbm_verbose'],
+        },
+        'plotting': {
+            'folder_path': hyperparameters_qaaan['rbm_folder_path'],
+        }
+    }
+
+def create_hyperparameters_gan(hyperparams_qaaan):
+    return {
+        'training': {
+            'epochs': hyperparams_qaaan['training']['total_epochs'],
+            'batch_size': hyperparams_qaaan['training']['batch_size'],
+            'save_frequency': hyperparams_qaaan['training']['save_frequency'],
+            'update_ratio_critic': hyperparams_qaaan['training']['update_ratios']['discriminator'],
+            'learning_rate': hyperparams_qaaan['training']['gan_learning_rate'],
+        },
+        'network': {
+            'latent_dim': hyperparams_qaaan['network']['feature_layer_size'],
+            'layers_gen': hyperparams_qaaan['network']['layers_generator'],
+            'layers_disc': hyperparams_qaaan['network']['layers_discriminator'],
+        },
+        'distributions': {
+            'mean': hyperparams_qaaan['distributions']['mean'],
+            'variance': hyperparams_qaaan['distributions']['variance'],
+            'target_dist': hyperparams_qaaan['distributions']['target_dist'],
+            'input_dist': hyperparams_qaaan['distributions']['input_dist'],
+        },
+        'plotting': {
+            'plot_size': hyperparams_qaaan['plotting']['plot_size'],
+            'n_bins': hyperparams_qaaan['plotting']['n_bins'],
+            'results_path': hyperparams_qaaan['plotting']['results_path'],
+        },
+    }
+
+def create_hyperparameters_rbm(hyperparams_qaaan):
+    return {
+        'network': {
+            'num_visible': hyperparams_qaaan['network']['feature_layer_size'],
+            'num_hidden': hyperparams_qaaan['network']['rbm_num_hidden'],
+            'qpu': hyperparams_qaaan['network']['qpu'],
+        },
+        'training': {
+            'epochs': hyperparams_qaaan['training']['rbm_epochs'],
+            'lr': hyperparams_qaaan['training']['rbm_learning_rate'],
+            'verbose': hyperparams_qaaan['training']['rbm_verbose'],
+        },
+        'plotting': {
+            'folder_path': hyperparams_qaaan['plotting']['rbm_folder_path'],
+        }
+    }
+
+
 if __name__ == "__main__":
     one_run = True
 
     hyperparameters_qaaan = {
-        'feature_layer_size': 20,
-        'update_ratios': {
-            'discriminator': 5,
-            'generator': 1,
-            'rbm': 1,
-        },
-        'rbm_type': 'classical',  # Can be classical, simulated or quantum.
-    }
-
-    hyperparameters_gan = {
         'training': {
-            'epochs': 100,
+            'update_ratios': {
+                'discriminator': 5,
+                'generator': 1,
+                'rbm': 1,
+            },
+            'total_epochs': 50,
+            'train_rbm_every_n': 10,
+            'samples_train_rbm': 1,
             'batch_size': 100,
             'save_frequency': 10,
-            'update_ratio_critic': hyperparameters_qaaan['update_ratios']['discriminator'],
-            'learning_rate': 0.001,
+            'gan_learning_rate': 0.001,
+            'rbm_epochs': 1,
+            'rbm_learning_rate': 0.001,
+            'rbm_verbose': False,
         },
         'network': {
-            'latent_dim': hyperparameters_qaaan['feature_layer_size'],
-            'layers_gen': [2, 13, 7, 1],
-            'layers_disc': [11, 29, 11, 1],
+            'feature_layer_size': 20,
+            'rbm_type': 'quantum',  # Can be classical, simulated, or quantum.
+            'rbm_num_hidden': 20,
+            'qpu': True if 'rbm_type' == 'quantum' else False,
+            'layers_generator': [2, 13, 7, 1],
+            'layers_discriminator': [11, 29, 11, 1],
+        },
+        'plotting': {
+            'plot_size': 10000,
+            'n_bins': 100,
+            'rbm_folder_path': None,
         },
         'distributions': {
             'mean': 1,
@@ -307,33 +421,13 @@ if __name__ == "__main__":
             'target_dist': 'gaussian',
             'input_dist': 'uniform',
         },
-        'plotting': {
-            'plot_size': 10000,
-            'n_bins': 100,
-            'results_path': 'results/2-tests/e_vanilla_qaaan/' + hyperparameters_qaaan['rbm_type'] + '/',
-        },
     }
 
-    hyperparameters_rbm = {
-        'network': {
-            'num_visible': hyperparameters_qaaan['feature_layer_size'],
-            'num_hidden': 20,
-            'qpu': True if hyperparameters_qaaan['rbm_type']=='quantum' else False,
-        },
-        'training': {
-            'epochs': 1,
-            'lr': 0.001,
-            'lr_decay': 0.1,
-            'epoch_drop': None,
-            'momentum': 0,
-            'batch_size': None,
-            'n_images': 10,
-            'verbose': False,
-        },
-        'plotting': {
-            'folder_path': hyperparameters_gan['plotting']['results_path'],
-        }
-    }
+    hyperparameters_qaaan['plotting']['results_path'] = 'results/2-tests/e_vanilla_qaaan/' + hyperparameters_qaaan['network']['rbm_type'] + '/'
+
+    hyperparameters_gan = create_hyperparameters_gan(hyperparameters_qaaan)
+    hyperparameters_rbm = create_hyperparameters_rbm(hyperparameters_qaaan)
+
 
     hyperparameters = {
         'hyperparameters_qaaan': hyperparameters_qaaan,

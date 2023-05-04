@@ -10,10 +10,6 @@ class ClassicalRBM:
         self.num_hidden = hyperparameters['network']['num_hidden']
         self.epochs = hyperparameters['training']['epochs']
         self.lr = hyperparameters['training']['lr']
-        self.lr_decay = hyperparameters['training']['lr_decay']
-        self.epoch_drop = hyperparameters['training']['epoch_drop']
-        self.momentum = hyperparameters['training']['momentum']
-        self.batch_size = hyperparameters['training']['batch_size']
         self.verbose = hyperparameters['training']['verbose']
         self.weights = np.random.normal(0, 0.1, (self.num_visible, self.num_hidden))
         self.visible_biases = np.zeros(self.num_visible)
@@ -69,10 +65,6 @@ class ClassicalRBM:
             if self.verbose:    
                 print(f"Epoch {epoch + 1}/{self.epochs}, Mean Squared Error: {total_error}")
 
-            # Decay the learning rate
-            if self.epoch_drop and (epoch + 1) % self.epoch_drop == 0:
-                self.lr *= 1 - self.lr_decay
-        
         return sum(self.errors) / len(self.errors)
 
     def generate_sample(self):
@@ -109,13 +101,13 @@ def generate_image(sample, hyperparameters):
     # Display the generated image
     new_image = sample.reshape(28, 28)
     plt.imshow(new_image, cmap='gray')
-    plt.savefig(f'{hyperparameters["plotting"]["folder_path"]}epochs_{hyperparameters["training"]["epochs"]}-n_images_{hyperparameters["training"]["n_images"]}-lr_{hyperparameters["training"]["lr"]}.png')
+    plt.savefig(f'{hyperparameters["plotting"]["folder_path"]}epochs_{hyperparameters["training"]["epochs"]}-n_images_{n_images}-lr_{hyperparameters["training"]["lr"]}.png')
     plt.close()
 
 
 
-def main(hyperparameters):
-    training_data = load_mnist(hyperparameters['training']['n_images'])
+def main(hyperparameters, n_images):
+    training_data = load_mnist(n_images)
     training_data = preprocess_data(training_data)
 
     rbm = ClassicalRBM(hyperparameters=hyperparameters)
@@ -125,6 +117,7 @@ def main(hyperparameters):
     generate_image(new_sample, hyperparameters)
 
 if __name__ == "__main__":
+    n_images = 10
     hyperparameters = {
         'network': {
             'num_visible': 784,
@@ -133,15 +126,10 @@ if __name__ == "__main__":
         'training': {
             'epochs': 10,
             'lr': 0.1,
-            'lr_decay': 0.1,
-            'epoch_drop': None,
-            'momentum': 0,
-            'batch_size': None,
-            'n_images': 10,
             'verbose': True,
         },
         'plotting': {
             'folder_path': 'results/2-tests/c_classical_rbm/'
         }
     }
-    main(hyperparameters=hyperparameters)
+    main(hyperparameters=hyperparameters, n_images=n_images)
