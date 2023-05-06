@@ -21,6 +21,7 @@ class QuantumRBM:
         self.weights = np.random.normal(0, 0.1, (self.num_visible, self.num_hidden))
         self.visible_biases = np.zeros(self.num_visible)
         self.hidden_biases = np.zeros(self.num_hidden)
+        self.counter = 0
 
     def create_visible_hamiltonian(self, visible_biases, weights, hidden_biases):
         hamiltonian = 0
@@ -89,7 +90,7 @@ class QuantumRBM:
     def sigmoid(self, x):
         return 1 / (1 + np.exp(-x))
 
-    def train(self, training_data, num_reads=1):
+    def train(self, training_data, num_reads=10):
         self.errors = []
 
         for epoch in range(self.epochs):
@@ -99,12 +100,14 @@ class QuantumRBM:
 
             for sample in training_data:
                 # Sample the hidden layer based on visible layer samples
-                hidden_samples = self.sample_hidden(sample, num_reads=num_reads)
-                hidden_sample = np.mean(hidden_samples, axis=0)
+                hidden_sample = self.sample_hidden(sample, num_reads=num_reads)
+                if num_reads > 1:
+                    hidden_sample = np.mean(hidden_sample, axis=0)
 
                 # Sample the visible layer based on hidden layer samples
-                visible_samples = self.sample_visible(hidden_sample, num_reads=num_reads)
-                visible_sample = np.mean(visible_samples, axis=0)
+                visible_sample = self.sample_visible(hidden_sample, num_reads=num_reads)
+                if num_reads > 1:
+                    visible_sample = np.mean(visible_sample, axis=0)
 
                 # Compute the probabilities for the hidden layer
                 hidden_probs = self.sigmoid(self.hidden_biases + np.dot(sample, self.weights))
@@ -167,9 +170,12 @@ class QuantumRBM:
 
         return samples_tensor
 
+    def generate_samples_1_by_1(self, n_samples):
+        return tf.convert_to_tensor(np.array([self.generate_sample() for _ in range(n_samples)]))
 
 
-def preprocess_data(data):
+
+def preprocess_mnist(data):
     data = data / 255.0
     data = (data > 0.5).astype(int)
     data = data.reshape(-1, 784)
@@ -198,24 +204,78 @@ def generate_image(sample, hyperparameters, n_images):
     plt.savefig(file_name)
     plt.close()
 
-
-def main(hyperparameters, n_images):
+def main_mnist(hyperparameters, n_images):
     training_data = load_mnist(n_images, digits=[0, 1])
-    training_data = preprocess_data(training_data)
+    training_data = preprocess_mnist(training_data)
 
     qrbm = QuantumRBM(hyperparameters=hyperparameters)
     qrbm.train(training_data)
     new_sample = qrbm.generate_sample()
 
-    generate_image(new_sample, hyperparameters)
+    generate_image(new_sample, hyperparameters, n_images=n_images)
+
+
+def discretize_data_distributions(data, num_bins):
+    digitized_data = np.digitize(data, np.linspace(np.min(data), np.max(data), num_bins)) - 1
+    binary_data = np.array([list(np.binary_repr(x, width=int(np.ceil(np.log2(num_bins))))) for x in digitized_data], dtype=int)
+    return binary_data
+
+def reconstruct_data_distributions(binary_data, num_bins, min_value, max_value):
+    digitized_data = np.array([int("".join(map(str, row)), 2) for row in binary_data])
+    continuous_data = np.linspace(min_value, max_value, num_bins)[digitized_data]
+    return continuous_data
+
+def plot_data_histogram(original_data, generated_data, num_bins):
+    fig, ax = plt.subplots(2, 1, figsize=(8, 6), sharex=True)
+
+    ax[0].hist(original_data, bins=num_bins, density=True, alpha=0.75)
+    ax[0].set_title("Original Gaussian Data")
+    ax[0].set_ylabel("Probability Density")
+
+    ax[1].hist(generated_data, bins=num_bins, density=True, alpha=0.75)
+    ax[1].set_title("Generated Samples")
+    ax[1].set_xlabel("Value")
+    ax[1].set_ylabel("Probability Density")
+
+    plt.tight_layout()
+    plt.show()
+
+def main_distributions(hyperparameters, num_samples):
+    # Generate 1D Gaussian data
+    data = np.random.normal(0, 1, num_samples)
+    num_bins = 50
+
+    # Discretize the data
+    binary_data = discretize_data_distributions(data, num_bins)
+    print('binary_data', binary_data[:5])
+
+    # Train the QuantumRBM
+    quantum_rbm = QuantumRBM(hyperparameters)
+    quantum_rbm.train(binary_data)
+
+    # Generate samples from the learned distribution
+    generated_binary_samples = quantum_rbm.generate_samples_1_by_1(2).numpy()
+    print('Generated Samples', generated_binary_samples[:2])
+
+    # Reconstruct the continuous samples from the binary samples
+    min_value = np.min(data)
+    max_value = np.max(data)
+    generated_samples = reconstruct_data_distributions(generated_binary_samples, num_bins, min_value, max_value)
+
+    print("Generated samples:", generated_samples)
+
+    # Plot the histograms
+    plot_data_histogram(data, generated_samples, num_bins)
 
 if __name__ == "__main__":
-    n_images = 10
+    mnist_main = True
+    num_samples = 4
+    num_bins = 50
     hyperparameters = {
         'network': {
             'num_visible': 784,
             'num_hidden': 20,
-            'qpu': False,
+            'qpu': True,
         },
         'training': {
             'epochs': 2,
@@ -226,4 +286,7 @@ if __name__ == "__main__":
             'folder_path': 'results/2-tests/d_quantum_rbm/'
         }
     }
-    main(hyperparameters=hyperparameters, n_images=n_images)
+    if mnist_main:
+        main_mnist(hyperparameters=hyperparameters, n_images=num_samples)
+    else:
+        main_distributions(hyperparameters=hyperparameters, num_samples=num_samples)

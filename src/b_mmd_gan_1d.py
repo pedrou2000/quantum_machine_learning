@@ -252,11 +252,11 @@ def complex_main(hyperparameters):
 
 
 if __name__ == "__main__":
-    one_run = False
+    one_run = True
 
     hyperparameters = {
         'training': {
-            'epochs': 20,
+            'epochs': 500,
             'save_frequency': 10,
             'batch_size': 64,
             'update_ratio_critic': 2,
@@ -272,7 +272,7 @@ if __name__ == "__main__":
             'critic_hidden_units': [11, 29, 11]
         },
         'distributions': {
-            'mean': 23,
+            'mean': 1,
             'variance': 1,
             'target_dist': 'gaussian',
             'input_dist': 'uniform'
@@ -280,7 +280,7 @@ if __name__ == "__main__":
         'plotting': {
             'plot_size': 10000,
             'n_bins': 100,
-            'results_path': 'results/2-tests/1-gan/2-mmd_gan_1d/0-tests/'
+            'results_path': 'results/2-tests/b_mmd_gan_1d/2-extra_tests/'
         }
     }
 

@@ -88,8 +88,8 @@ class GAN:
         self.gan.compile(optimizer=custom_adam, loss='binary_crossentropy')
 
     def train(self):
-        real_data = self.sample_real_data()
         real_labels = np.ones((self.batch_size, 1))
+        real_data = self.sample_real_data()
 
         d_loss_real_total = 0
         d_loss_fake_total = 0
@@ -134,6 +134,7 @@ class GAN:
         generated_data = self.generator.predict(noise, verbose=0).flatten()
 
         plt.hist(generated_data, bins=self.n_bins, alpha=0.6, label='Generated Data', density=True)
+        plt.ylim(0, 1)
 
         # Plot PDFs
         x_values = np.linspace(self.mean - 4 * np.sqrt(self.variance), self.mean + 4 * np.sqrt(self.variance), 1000)
@@ -215,11 +216,11 @@ if __name__ == "__main__":
 
     hyperparameters = {
         'training': {
-            'epochs': 100,
+            'epochs': 1000,
             'batch_size': 128,
-            'save_frequency': 1,
+            'save_frequency': 10,
             'update_ratio_critic': 5,
-            'learning_rate': 0.001,
+            'learning_rate': 0.0001,
         },
         'network': {
             'latent_dim': 100,
@@ -227,7 +228,7 @@ if __name__ == "__main__":
             'layers_disc': [11, 29, 11, 1],
         },
         'distributions': {
-            'mean': 5,
+            'mean': 1,
             'variance': 1,
             'target_dist': 'gaussian',
             'input_dist': 'uniform',

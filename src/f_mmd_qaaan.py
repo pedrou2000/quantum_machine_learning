@@ -8,10 +8,11 @@ import time
 import json
 from scipy.stats import norm, uniform, cauchy, pareto, beta
 from a_vanilla_gan_1d import *
+from b_mmd_gan_1d import *
 from c_classical_rbm import *
 from d_quantum_rbm import *
 
-class ClassicalQAAAN(GAN):
+class MMD_QAAAN(MMD_GAN):
     def __init__(self, hyperparameters):
         self.feature_layer_size = hyperparameters['hyperparameters_qaaan']['network']['feature_layer_size']
         self.update_ratios = hyperparameters['hyperparameters_qaaan']['training']['update_ratios']
@@ -21,7 +22,7 @@ class ClassicalQAAAN(GAN):
         self.train_rbm_cutoff_epoch = hyperparameters['hyperparameters_qaaan']['training']['train_rbm_cutoff_epoch']
         self.train_rbm_start_epoch = hyperparameters['hyperparameters_qaaan']['training']['train_rbm_start_epoch']
 
-        super().__init__(hyperparameters['hyperparameters_gan'])
+        super().__init__(hyperparameters['hyperparameters_mmd_gan'])
         self.hyperparameters = hyperparameters
 
         # Create a new model to extract intermediate layer output
@@ -34,22 +35,19 @@ class ClassicalQAAAN(GAN):
         elif self.rbm_type == 'simulated' or self.rbm_type == 'quantum':
             self.rbm = QuantumRBM(hyperparameters=hyperparameters['hyperparameters_rbm'])
 
-    def create_discriminator(self):
-        model = keras.Sequential()
-
-        model.add(layers.Dense(self.layers_disc[0], activation='relu', input_shape=(1,)))
-        for n_layer in self.layers_disc[1:-2]:
-            model.add(layers.Dense(n_layer, activation='relu'))
-        
-        # Feature Layer is the previous to the last layer of the discriminator.
+    def create_critic(self):
+        model = Sequential()
+        model.add(Dense(self.critic_hidden_units[0], input_dim=1))
+        model.add(ELU())
+        model.add(Dense(self.critic_hidden_units[1]))
+        model.add(ELU())
         model.add(layers.Dense(self.feature_layer_size, activation='tanh'))
-        
-        model.add(layers.Dense(1, activation='sigmoid'))
+        model.add(Dense(1))
         return model
 
     def create_feature_layer_model(self, layer_index):
-        input_layer = self.discriminator.input
-        intermediate_layer = self.discriminator.get_layer(index=layer_index).output
+        input_layer = self.critic.input
+        intermediate_layer = self.critic.get_layer(index=layer_index).output
         return keras.Model(inputs=input_layer, outputs=intermediate_layer)
     
     def preprocess_rbm_input(self, data):
@@ -127,25 +125,53 @@ class ClassicalQAAAN(GAN):
         g_loss_total = 0
         rbm_loss_total = 0
         rbm_loss = 0
+        average_critic_loss = 0
+        average_gen_loss = 0
 
-        rbm_prior_discriminator = self.generate_prior(n_batches=self.update_ratios['discriminator'])
+        rbm_prior_critic = self.generate_prior(n_batches=self.update_ratios['critic'])
 
         for epoch in range(self.epochs):
 
-            # Discriminator Training
-            for j in range(self.update_ratios['discriminator']):
-                # Train discriminator on real data
-                real_data = self.sample_real_data()
-                d_loss_real = self.discriminator.train_on_batch(real_data, real_labels)
+            # Critic Training
+            # for j in range(self.update_ratios['critic']):
+            #     # Train critic on real data
+            #     real_data = self.sample_real_data()
+            #     d_loss_real = self.discriminator.train_on_batch(real_data, real_labels)
 
-                # Train discriminator on generated data
-                rbm_prior = rbm_prior_discriminator[j]
-                generated_data = self.generator.predict(rbm_prior, verbose=0)
-                d_loss_fake = self.discriminator.train_on_batch(generated_data, fake_labels)
+            #     # Train critic on generated data
+            #     rbm_prior = rbm_prior_critic[j]
+            #     generated_data = self.generator.predict(rbm_prior, verbose=0)
+            #     d_loss_fake = self.discriminator.train_on_batch(generated_data, fake_labels)
+
+            # Critic Training 
+            for j in range(self.update_ratios['critic']):
+                x_real = self.sample_real_data()
+                rbm_prior = rbm_prior_critic[j]
+
+                with tf.GradientTape() as tape:
+                    x_fake = self.generator(rbm_prior)
+                    critic_x_real = self.critic(tf.expand_dims(x_real, -1))
+                    critic_x_fake = self.critic(x_fake)
+                    mmd = self.compute_mmd(critic_x_real, critic_x_fake)
+                    constraint_term = tf.reduce_mean(critic_x_real) - tf.reduce_mean(critic_x_fake)
+                    critic_loss = -mmd + self.mmd_lamb * tf.minimum(constraint_term, 0)
+
+                critic_gradients = tape.gradient(critic_loss, self.critic.trainable_variables)
+                self.critic_optimizer.apply_gradients(zip(critic_gradients, self.critic.trainable_variables))
+                average_critic_loss += critic_loss
+
+                # Clip critic weights
+                for var in self.critic.trainable_variables:
+                    var.assign(tf.clip_by_value(var, -self.clip, self.clip))
+
+
+
+
 
             # RBM Training
             if self.train_rbm_every_n is None or epoch % self.train_rbm_every_n == 0: 
                 for _ in range(self.update_ratios['rbm']):
+                    real_data = self.sample_real_data()
                     if epoch < self.train_rbm_cutoff_epoch and epoch >= self.train_rbm_start_epoch:
                         # Generate Input for RBM Training
                         random_indices = np.random.choice(len(real_data), self.samples_train_rbm, replace=False)
@@ -154,37 +180,48 @@ class ClassicalQAAAN(GAN):
 
                         rbm_loss = self.rbm.train(rbm_input, num_reads=10)  
 
-                    # Generate Training Data for Generator and Discriminator
-                    rbm_prior = self.generate_prior(n_batches=self.update_ratios['discriminator'] + self.update_ratios['generator'])
-                    rbm_prior_discriminator = rbm_prior[:self.update_ratios['discriminator']]
-                    rbm_prior_generator = rbm_prior[self.update_ratios['discriminator']:]
+                    # Generate Training Data for Generator and Critic
+                    rbm_prior = self.generate_prior(n_batches=self.update_ratios['critic'] + self.update_ratios['generator'])
+                    rbm_prior_critic = rbm_prior[:self.update_ratios['critic']]
+                    rbm_prior_generator = rbm_prior[self.update_ratios['critic']:]
                     
+            rbm_loss_total += rbm_loss
+
+
+
+            # Generator Training
+            # for j in range(self.update_ratios['generator']):
+            #     rbm_prior = rbm_prior_generator[j]
+            #     g_loss = self.gan.train_on_batch(rbm_prior, real_labels)
+
             # Generator Training
             for j in range(self.update_ratios['generator']):
                 rbm_prior = rbm_prior_generator[j]
-                g_loss = self.gan.train_on_batch(rbm_prior, real_labels)
 
-            # Update Losses
-            d_loss_real_total += d_loss_real
-            d_loss_fake_total += d_loss_fake
-            g_loss_total += g_loss
-            rbm_loss_total += rbm_loss
+                with tf.GradientTape() as tape:
+                    x_fake = self.generator(rbm_prior)
+                    critic_x_fake = self.critic(x_fake)
+                    mmd = self.compute_mmd(critic_x_real, critic_x_fake)
+                    generator_loss = mmd
+                generator_gradients = tape.gradient(generator_loss, self.generator.trainable_variables)
+                self.generator_optimizer.apply_gradients(zip(generator_gradients, self.generator.trainable_variables))
+                average_gen_loss += generator_loss
+
+
+
 
             # Save losses
             if epoch % self.save_frequency == 0:
-                d_loss_real_total /= self.save_frequency
-                d_loss_fake_total /= self.save_frequency
-                g_loss_total /= self.save_frequency
-                rbm_loss_total /= self.save_frequency
-                print(f"Epoch {epoch}, Discriminator Loss on Real Data: {d_loss_real_total:.3f}, Discriminator Loss on Fake Data: {d_loss_fake_total:.3f}, Generator Loss: {g_loss_total:.3f}, RBM Loss: {rbm_loss_total:.3f}")
-                self.d_losses_real.append(d_loss_real_total)
-                self.d_losses_fake.append(d_loss_fake_total)
-                self.g_losses.append(g_loss_total)
-                self.rbm_losses.append(rbm_loss_total)
 
-                d_loss_real_total = 0
-                d_loss_fake_total = 0
-                g_loss_total = 0
+                average_gen_loss /= self.save_frequency
+                average_critic_loss /= self.save_frequency
+                rbm_loss_total /= self.save_frequency
+                self.generator_losses.append(average_gen_loss)
+                self.critic_losses.append(average_critic_loss)
+                self.rbm_losses.append(rbm_loss_total)
+                print(f"Epoch {epoch}: generator MMD = {average_gen_loss:.4f}, critic MMD = {average_critic_loss:.4f}, RBM Loss: {rbm_loss_total:.4f}")
+                average_gen_loss = 0
+                average_critic_loss = 0
                 rbm_loss_total = 0
 
     def train_2(self):
@@ -283,8 +320,6 @@ class ClassicalQAAAN(GAN):
                 g_loss_total = 0
 
 
-
-
     def save_parameters_to_json(self, folder_path):
         parameters = {
             'timestamp': time.strftime('%Y-%m-%d %H:%M:%S'),
@@ -292,29 +327,25 @@ class ClassicalQAAAN(GAN):
         }
         with open(os.path.join(folder_path, 'parameters.json'), 'w') as f:
             json.dump(parameters, f, indent=4)
-    
+
     def plot_losses(self, folder_path):
+        plt.plot(self.critic_losses, label='Critic MMD')
+        plt.plot(self.generator_losses, label='Generator MMD')
         plt.plot(self.rbm_losses, label='RBM Loss')
-        plt.plot(self.d_losses_real, label='Discriminator Loss on Real Data')
-        plt.plot(self.d_losses_fake, label='Discriminator Loss on Generated Data')
-        plt.plot(self.g_losses, label='Generator Loss')
         plt.xlabel('Epoch x '+str(self.save_frequency))
-        plt.ylabel('Loss')
+        plt.ylabel('MMD')
         plt.legend()
-        plt.title('Losses')
-        plt.ylim(0, 2)
+        plt.title('MMDs')
+        # plt.ylim(0, 2)
 
         plt.savefig(f'{folder_path}losses.png', dpi=300)
         plt.close()
 
     def plot_results(self, folder_path):
-        # noise = self.sample_noise(plot=True)
-        # generated_data = self.generator.predict(noise, verbose=0).flatten()
         rbm_prior = self.generate_prior(n_samples=1000)
-        generated_data = self.generator.predict(rbm_prior, verbose=0).flatten()
+        x_fake = self.generator(rbm_prior).numpy().flatten()
 
-        plt.hist(generated_data, bins=self.n_bins, alpha=0.6, label='Generated Data', density=True)
-        plt.ylim(0, 1)
+        plt.hist(x_fake, bins=self.n_bins, alpha=0.6, label="Generated Data", density=True) # set density=True to display percentages
 
         # Plot PDFs
         x_values = np.linspace(self.mean - 4 * np.sqrt(self.variance), self.mean + 4 * np.sqrt(self.variance), 1000)
@@ -331,20 +362,20 @@ class ClassicalQAAAN(GAN):
         elif self.target_dist == "pareto":
             pdf_values = pareto.pdf(x_values, b=self.mean, scale=np.sqrt(self.variance))
 
-        pdf_values = pdf_values / (pdf_values.sum() * np.diff(x_values)[0])  # normalize the PDF
+        pdf_values = pdf_values / (pdf_values.sum() * np.diff(x_values)[0]) # normalize the PDF
 
         plt.plot(x_values, pdf_values, label="Real PDF")
 
         plt.legend()
 
-        plt.savefig(f'{folder_path}histogram.png', dpi=300)
+        plt.savefig(f"{folder_path}histogram.png", dpi=300)
         plt.close()
 
 
 
 
 def simple_main(hyperparameters):
-    gan = ClassicalQAAAN(hyperparameters)
+    gan = MMD_QAAAN(hyperparameters)
     gan.train()
     gan.plot_and_save()
 
@@ -365,19 +396,23 @@ def complex_main(hyperparameters):
             gan.plot_and_save()
 
 
-def create_hyperparameters_gan(hyperparams_qaaan):
+def create_hyperparameters_mmd_gan(hyperparams_qaaan):
     return {
         'training': {
             'epochs': hyperparams_qaaan['training']['total_epochs'],
             'batch_size': hyperparams_qaaan['training']['batch_size'],
             'save_frequency': hyperparams_qaaan['training']['save_frequency'],
-            'update_ratio_critic': hyperparams_qaaan['training']['update_ratios']['discriminator'],
-            'learning_rate': hyperparams_qaaan['training']['gan_learning_rate'],
+            'update_ratio_critic': hyperparams_qaaan['training']['update_ratios']['critic'],
+            'update_ratio_gen': hyperparams_qaaan['training']['update_ratios']['generator'],
+            'lr': hyperparams_qaaan['training']['mmd_gan_learning_rate'],
+            'mmd_lamb': hyperparams_qaaan['training']['mmd_lamb'],
+            'clip': hyperparams_qaaan['training']['clip'],
+            'sigmas': hyperparams_qaaan['training']['sigmas']
         },
         'network': {
             'latent_dim': hyperparams_qaaan['network']['feature_layer_size'],
-            'layers_gen': hyperparams_qaaan['network']['layers_generator'],
-            'layers_disc': hyperparams_qaaan['network']['layers_discriminator'],
+            'gen_hidden_units': hyperparams_qaaan['network']['layers_generator'],
+            'critic_hidden_units': hyperparams_qaaan['network']['layers_critic'],
         },
         'distributions': {
             'mean': hyperparams_qaaan['distributions']['mean'],
@@ -416,28 +451,31 @@ if __name__ == "__main__":
     hyperparameters_qaaan = {
         'training': {
             'update_ratios': {
-                'discriminator': 5,
+                'critic': 5,
                 'generator': 1,
                 'rbm': 1,
             },
             'total_epochs': 100,
-            'train_rbm_every_n': 10,
+            'train_rbm_every_n': 1,
             'train_rbm_cutoff_epoch': 50,
-            'train_rbm_start_epoch': 10,
+            'train_rbm_start_epoch': 1,
             'samples_train_rbm': 1,
             'batch_size': 100,
-            'save_frequency': 10,
-            'gan_learning_rate': 0.001,
-            'rbm_learning_rate': 0.1,
+            'save_frequency': 1,
+            'mmd_gan_learning_rate': 1e-3,
+            'rbm_learning_rate': 0.01,
             'rbm_epochs': 1,
             'rbm_verbose': False,
+            'mmd_lamb': 0.01,
+            'clip': 1,
+            'sigmas': [1, 2, 4, 8, 16],
         },
         'network': {
-            'rbm_type': 'classical',  # Can be classical, simulated, or quantum.
+            'rbm_type': 'quantum',  # Can be classical, simulated, or quantum.
             'feature_layer_size': 20,
             'rbm_num_hidden': 20,
             'layers_generator': [2, 13, 7, 1],
-            'layers_discriminator': [11, 29, 11, 1],
+            'layers_critic': [11, 29, 11],  
         },
         'plotting': {
             'plot_size': 10000,
@@ -452,15 +490,15 @@ if __name__ == "__main__":
         },
     }
 
-    hyperparameters_qaaan['plotting']['results_path'] = 'results/2-tests/e_vanilla_qaaan/' + hyperparameters_qaaan['network']['rbm_type'] + '/'
+    hyperparameters_qaaan['plotting']['results_path'] = 'results/2-tests/f_mmd_qaaan/' + hyperparameters_qaaan['network']['rbm_type'] + '/'
 
-    hyperparameters_gan = create_hyperparameters_gan(hyperparameters_qaaan)
+    hyperparameters_mmd_gan = create_hyperparameters_mmd_gan(hyperparameters_qaaan)
     hyperparameters_rbm = create_hyperparameters_rbm(hyperparameters_qaaan)
 
 
     hyperparameters = {
         'hyperparameters_qaaan': hyperparameters_qaaan,
-        'hyperparameters_gan': hyperparameters_gan,
+        'hyperparameters_mmd_gan': hyperparameters_mmd_gan,
         'hyperparameters_rbm': hyperparameters_rbm,
     }
 
