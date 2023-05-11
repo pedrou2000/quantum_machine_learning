@@ -8,6 +8,7 @@ import time
 import json
 from scipy.stats import norm, uniform, cauchy, pareto
 from keras.optimizers import Adam
+from scipy.stats import wasserstein_distance
 
 class GAN:
     def __init__(self, hyperparameters):
@@ -35,43 +36,46 @@ class GAN:
         self.d_losses_fake = []
         self.g_losses = []
 
-    def sample_real_data(self):
+    def sample_real_data(self, plot=False):
+        size = self.batch_size
+        if plot:
+            size = plot
         if self.target_dist == "gaussian":
-            return np.random.normal(self.mean, self.variance, self.batch_size)
+            samples = np.random.normal(self.mean, self.variance, size)
         elif self.target_dist == "uniform":
-            return np.random.uniform(self.mean, self.variance, self.batch_size)
+            samples = np.random.uniform(self.mean, self.variance, size)
         elif self.target_dist == "cauchy":
-            return cauchy.rvs(self.mean, self.variance, self.batch_size)
+            samples = cauchy.rvs(self.mean, self.variance, size)
         elif self.target_dist == "pareto":
-            return pareto.rvs(self.mean, self.variance, self.batch_size)
+            b = self.mean  # Shape parameter for Pareto distribution
+            scale = self.variance  # Scale parameter for Pareto distribution
+            samples = pareto.rvs(b, scale=scale, size=size)
+        return samples
 
     def sample_noise(self, plot=False):
-        if not plot: 
-            if self.input_dist == "gaussian":
-                return np.random.normal(0, 1, (self.batch_size, self.latent_dim))
-            elif self.input_dist == "uniform":
-                return np.random.uniform(0, 1,(self.batch_size, self.latent_dim))
-        else:
-            if self.input_dist == "gaussian":
-                return np.random.normal(0, 1, (self.plot_size, self.latent_dim))
-            elif self.input_dist == "uniform":
-                return np.random.uniform(0, 1,(self.plot_size, self.latent_dim))
+        size = self.batch_size
+        if plot:
+            size = plot
+        if self.input_dist == "gaussian":
+            return np.random.normal(0, 1, (size, self.latent_dim))
+        elif self.input_dist == "uniform":
+            return np.random.uniform(0, 1,(size, self.latent_dim))
 
     def create_generator(self):
         model = keras.Sequential()
         
-        model.add(layers.Dense(self.layers_gen[0], activation='relu', input_dim=self.latent_dim))
+        model.add(layers.Dense(self.layers_gen[0], activation='elu', input_dim=self.latent_dim))
         for n_layer in self.layers_gen[1:-1]:
-            model.add(layers.Dense(n_layer, activation='relu'))
+            model.add(layers.Dense(n_layer, activation='elu'))
         model.add(layers.Dense(self.layers_gen[-1], activation='linear'))
         return model
 
     def create_discriminator(self):
         model = keras.Sequential()
 
-        model.add(layers.Dense(self.layers_disc[0], activation='relu', input_shape=(1,)))
+        model.add(layers.Dense(self.layers_disc[0], activation='elu', input_shape=(1,)))
         for n_layer in self.layers_disc[1:-1]:
-            model.add(layers.Dense(n_layer, activation='relu'))
+            model.add(layers.Dense(n_layer, activation='elu'))
         model.add(layers.Dense(self.layers_disc[len(self.layers_disc)-1], activation='sigmoid'))
         return model
 
@@ -82,7 +86,7 @@ class GAN:
         return model
 
     def compile_models(self):
-        custom_adam = Adam(learning_rate=self.learning_rate)
+        custom_adam = Adam()#learning_rate=self.learning_rate)
         self.discriminator.compile(optimizer=custom_adam, loss='binary_crossentropy')
         self.discriminator.trainable = False
         self.gan.compile(optimizer=custom_adam, loss='binary_crossentropy')
@@ -119,7 +123,7 @@ class GAN:
                 d_loss_real_total /= self.save_frequency
                 d_loss_fake_total /= self.save_frequency
                 g_loss_total /= self.save_frequency
-                print(f"Epoch {epoch}, D_loss_real: {d_loss_real_total}, D_loss_fake: {d_loss_fake_total}, G_loss: {g_loss_total}")
+                print(f"Epoch {epoch}, Discriminator Loss on Real Data: {d_loss_real_total:.3f}, Discriminator Loss on Fake Data: {d_loss_fake_total:.3f}, Generator Loss: {g_loss_total:.3f}")
                 self.d_losses_real.append(d_loss_real_total)
                 self.d_losses_fake.append(d_loss_fake_total)
                 self.g_losses.append(g_loss_total)
@@ -129,12 +133,51 @@ class GAN:
                 g_loss_total = 0
 
 
-    def plot_results(self, folder_path):
-        noise = self.sample_noise(plot=True)
-        generated_data = self.generator.predict(noise, verbose=0).flatten()
+    def plot_results_pdf(self, folder_path, generated_data, wasserstein_dist):
+        plt.hist(generated_data, bins=self.n_bins, alpha=0.6, label="Generated Data", density=True) # set density=True to display percentages
 
+        # Define bounds and pdf_values for each distribution type
+        if self.target_dist == "gaussian":
+            lower_bound = self.mean - 4 * np.sqrt(self.variance)
+            upper_bound = self.mean + 4 * np.sqrt(self.variance)
+            x_values = np.linspace(lower_bound, upper_bound, 1000)
+            pdf_values = norm.pdf(x_values, loc=self.mean, scale=np.sqrt(self.variance))
+        elif self.target_dist == "uniform":
+            lower_bound = self.mean
+            upper_bound = self.variance
+            x_values = np.linspace(lower_bound - 1, upper_bound + 1, 1000)
+            scale = upper_bound - lower_bound
+            pdf_values = uniform.pdf(x_values, loc=lower_bound, scale=scale)
+        elif self.target_dist == "cauchy":
+            lower_bound = self.mean - 4 * np.sqrt(self.variance)
+            upper_bound = self.mean + 4 * np.sqrt(self.variance)
+            x_values = np.linspace(lower_bound, upper_bound, 1000)
+            pdf_values = cauchy.pdf(x_values, loc=self.mean, scale=np.sqrt(self.variance))
+        elif self.target_dist == "pareto":
+            lower_bound = self.mean
+            upper_bound = self.mean + 3 * np.sqrt(self.variance)  # Adjust this multiplier as needed
+            x_values = np.linspace(lower_bound - 1, upper_bound + 1, 1000)
+            pdf_values = pareto.pdf(x_values, b=self.mean, scale=np.sqrt(self.variance))
+
+
+        pdf_values = pdf_values / (pdf_values.sum() * np.diff(x_values)[0]) # normalize the PDF
+
+        plt.plot(x_values, pdf_values, label="Real PDF")
+
+        plt.plot([], [], ' ', label=f'Wasserstein Distance: {wasserstein_dist:.2f}')
+        plt.legend()
+
+        # Set x and y axes range
+        plt.xlim(x_values[0], x_values[-1])
+        plt.ylim(0, pdf_values.max() * 1.3) 
+
+        plt.savefig(f"{folder_path}histogram_pdf.png", dpi=300)
+        plt.close()
+
+
+    def plot_results_old(self, folder_path, generated_data, wasserstein_dist):
         plt.hist(generated_data, bins=self.n_bins, alpha=0.6, label='Generated Data', density=True)
-        plt.ylim(0, 1)
+        # plt.ylim(0, 1)
 
         # Plot PDFs
         x_values = np.linspace(self.mean - 4 * np.sqrt(self.variance), self.mean + 4 * np.sqrt(self.variance), 1000)
@@ -155,15 +198,18 @@ class GAN:
 
         plt.plot(x_values, pdf_values, label="Real PDF")
 
+        plt.plot([], [], ' ', label=f'Wasserstein Distance: {wasserstein_dist:.2f}')
         plt.legend()
 
-        plt.savefig(f'{folder_path}histogram.png', dpi=300)
+        plt.savefig(f'{folder_path}histogram_old.png', dpi=300)
         plt.close()
 
+
+
     def plot_losses(self, folder_path):
-        plt.plot(self.d_losses_real, label='D_loss_real')
-        plt.plot(self.d_losses_fake, label='D_loss_fake')
-        plt.plot(self.g_losses, label='G_loss')
+        plt.plot(self.d_losses_real, label='Discriminator Loss on Real Data')
+        plt.plot(self.d_losses_fake, label='Discriminator Loss on Generated Data')
+        plt.plot(self.g_losses, label='Generator Loss')
         plt.xlabel('Epoch x '+str(self.save_frequency))
         plt.ylabel('Loss')
         plt.legend()
@@ -173,8 +219,15 @@ class GAN:
         plt.savefig(f'{folder_path}losses.png', dpi=300)
         plt.close()
 
-    def save_parameters_to_json(self, folder_path):
+    def wasserstein_distance(self, sample_size):
+        noise = self.sample_noise(plot=sample_size)
+        gen_samples = self.generator.predict(noise, verbose=0).flatten()
+        real_samples = self.sample_real_data(plot=sample_size)
+        return wasserstein_distance(real_samples, gen_samples)
+
+    def save_parameters_to_json(self, folder_path, wasserstein_dist):
         parameters = {
+            'wasserstein_distance': round(wasserstein_dist, 3),
             'timestamp': time.strftime('%Y-%m-%d %H:%M:%S'),
             'hyperparameters': self.hyperparameters,
         }
@@ -183,15 +236,23 @@ class GAN:
     
     def create_result_folder(self):
         timestamp = time.strftime("%Y%m%d_%H%M%S")
-        folder_path = self.results_path + f'{self.target_dist}_{self.mean}_{self.variance}_{timestamp}/'
+        folder_path = self.results_path + f'{self.target_dist}_{self.epochs}_{self.mean}_{self.variance}_{timestamp}/'
         os.makedirs(folder_path, exist_ok=True)
         return folder_path
     
     def plot_and_save(self):
         folder_path = self.create_result_folder()
-        self.plot_results(folder_path)
+
+
+        noise = self.sample_noise(plot=self.plot_size)
+        generated_data = self.generator.predict(noise, verbose=0).flatten()
+        wasserstein_dist = self.wasserstein_distance(self.plot_size)
+        self.plot_results_pdf(folder_path, generated_data, wasserstein_dist)
+        self.plot_results_old(folder_path, generated_data, wasserstein_dist)
+        
+        
         self.plot_losses(folder_path)
-        self.save_parameters_to_json(folder_path)
+        self.save_parameters_to_json(folder_path, wasserstein_dist)
 
 
 def simple_main(hyperparameters):
@@ -216,21 +277,21 @@ if __name__ == "__main__":
 
     hyperparameters = {
         'training': {
-            'epochs': 1000,
+            'epochs': 30,
             'batch_size': 128,
             'save_frequency': 10,
             'update_ratio_critic': 5,
-            'learning_rate': 0.0001,
+            'learning_rate': 0.001,
         },
         'network': {
             'latent_dim': 100,
-            'layers_gen': [2, 13, 7, 1],
+            'layers_gen': [7, 13, 7, 1],
             'layers_disc': [11, 29, 11, 1],
         },
         'distributions': {
             'mean': 1,
-            'variance': 1,
-            'target_dist': 'gaussian',
+            'variance': 2,
+            'target_dist': 'uniform', # can be gaussian, uniform, pareto or cauchy
             'input_dist': 'uniform',
         },
         'plotting': {

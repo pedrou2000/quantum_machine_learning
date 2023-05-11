@@ -1,0 +1,38 @@
+{
+    "timestamp": "2023-05-09 12:05:28",
+    "hyperparameters": {
+        "training": {
+            "epochs": 10000,
+            "batch_size": 128,
+            "save_frequency": 10,
+            "update_ratio_critic": 5,
+            "learning_rate": 0.001
+        },
+        "network": {
+            "latent_dim": 100,
+            "layers_gen": [
+                7,
+                13,
+                7,
+                1
+            ],
+            "layers_disc": [
+                11,
+                29,
+                11,
+                1
+            ]
+        },
+        "distributions": {
+            "mean": 3,
+            "variance": 1,
+            "target_dist": "cauchy",
+            "input_dist": "uniform"
+        },
+        "plotting": {
+            "plot_size": 10000,
+            "n_bins": 100,
+            "results_path": "results/2-tests/a_vanilla_gan_1d/"
+        }
+    }
+}

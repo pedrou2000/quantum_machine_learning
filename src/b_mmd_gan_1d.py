@@ -9,9 +9,11 @@ from matplotlib.ticker import FuncFormatter, PercentFormatter
 from scipy.stats import norm, uniform, cauchy, pareto
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.stats import wasserstein_distance
+from a_vanilla_gan_1d import *
 
 
-class MMD_GAN:
+class MMD_GAN(GAN):
     def __init__(self, hyperparameters):
         self.hyperparameters = hyperparameters
         self.latent_dim = hyperparameters['network']['latent_dim']
@@ -44,27 +46,30 @@ class MMD_GAN:
         self.generator_optimizer = Adam(learning_rate=self.gen_lr)
         self.critic_optimizer = Adam(learning_rate=self.critic_lr)
 
-    def sample_real_data(self):
+    def sample_real_data(self, plot=False):
+        size = self.batch_size
+        if plot:
+            size = plot
         if self.target_dist == "gaussian":
-            return np.random.normal(self.mean, np.sqrt(self.variance), (self.batch_size, 1)).astype(np.float32)
+            samples = np.random.normal(self.mean, self.variance, size)
         elif self.target_dist == "uniform":
-            return np.random.uniform(self.mean, self.variance, (self.batch_size, 1)).astype(np.float32)
+            samples = np.random.uniform(self.mean, self.variance, size)
         elif self.target_dist == "cauchy":
-            return cauchy.rvs(self.mean,  np.sqrt(self.variance), size=(self.batch_size, 1)).astype(np.float32)
+            samples = cauchy.rvs(self.mean, self.variance, size)
         elif self.target_dist == "pareto":
-            return pareto.rvs(self.mean, scale=np.sqrt(self.variance), size=(self.batch_size, 1)).astype(np.float32)
-
+            b = self.mean  # Shape parameter for Pareto distribution
+            scale = self.variance  # Scale parameter for Pareto distribution
+            samples = pareto.rvs(b, scale=scale, size=size)
+        return samples
+    
     def sample_noise(self, plot=False):
-        if not plot: 
-            if self.input_dist == "gaussian":
-                return np.random.normal(0, 1, (self.batch_size, self.latent_dim)).astype(np.float32)
-            elif self.input_dist == "uniform":
-                return np.random.uniform(0, 1,(self.batch_size, self.latent_dim)).astype(np.float32)
-        else:
-            if self.input_dist == "gaussian":
-                return np.random.normal(0, 1, (self.plot_size, self.latent_dim)).astype(np.float32)
-            elif self.input_dist == "uniform":
-                return np.random.uniform(0, 1,(self.plot_size, self.latent_dim)).astype(np.float32)
+        size = self.batch_size
+        if plot:
+            size = plot
+        if self.input_dist == "gaussian":
+            return np.random.normal(0, 1, (size, self.latent_dim)).astype(np.float32)
+        elif self.input_dist == "uniform":
+                return np.random.uniform(0, 1,(size, self.latent_dim)).astype(np.float32)
 
     def create_generator(self):
         model = Sequential()
@@ -167,36 +172,6 @@ class MMD_GAN:
                 average_critic_loss = 0
 
 
-    def plot_results(self, folder_path):
-        z1 = self.sample_noise(plot=True)
-        x_fake = self.generator(z1).numpy().flatten()
-
-        plt.hist(x_fake, bins=self.n_bins, alpha=0.6, label="Generated Data", density=True) # set density=True to display percentages
-
-        # Plot PDFs
-        x_values = np.linspace(self.mean - 4 * np.sqrt(self.variance), self.mean + 4 * np.sqrt(self.variance), 1000)
-
-        if self.target_dist == "gaussian":
-            pdf_values = norm.pdf(x_values, loc=self.mean, scale=np.sqrt(self.variance))
-        elif self.target_dist == "uniform":
-            lower_bound = self.mean
-            upper_bound = self.variance
-            scale = upper_bound - lower_bound
-            pdf_values = uniform.pdf(x_values, loc=self.mean, scale=scale)
-        elif self.target_dist == "cauchy":
-            pdf_values = cauchy.pdf(x_values, loc=self.mean, scale=np.sqrt(self.variance))
-        elif self.target_dist == "pareto":
-            pdf_values = pareto.pdf(x_values, b=self.mean, scale=np.sqrt(self.variance))
-
-        pdf_values = pdf_values / (pdf_values.sum() * np.diff(x_values)[0]) # normalize the PDF
-
-        plt.plot(x_values, pdf_values, label="Real PDF")
-
-        plt.legend()
-
-        plt.savefig(f"{folder_path}histogram.png", dpi=300)
-        plt.close()
-
     def plot_losses(self, folder_path):
         plt.plot(self.critic_losses, label='Critic MMD')
         plt.plot(self.generator_losses, label='Generator MMD')
@@ -207,9 +182,16 @@ class MMD_GAN:
 
         plt.savefig(f'{folder_path}losses.png', dpi=300)
         plt.close()
-
-    def save_parameters_to_json(self, folder_path):
+    
+    def wasserstein_distance(self, sample_size):
+        noise = self.sample_noise(plot=sample_size)
+        gen_samples = self.generator.predict(noise, verbose=0).flatten()
+        real_samples = self.sample_real_data(plot=sample_size)
+        return wasserstein_distance(real_samples, gen_samples)
+    
+    def save_parameters_to_json(self, folder_path, wasserstein_dist):
         parameters = {
+            'wasserstein_distance': round(wasserstein_dist, 3),
             'timestamp': time.strftime('%Y-%m-%d %H:%M:%S'),
             'hyperparameters': self.hyperparameters,
         }
@@ -218,17 +200,21 @@ class MMD_GAN:
 
     def create_result_folder(self):
         timestamp = time.strftime("%m%d_%H%M")
-        folder_path = (
-            self.results_path + f"epochs_{self.epochs}_target_{self.target_dist}_input_{self.input_dist}_{self.variance}_{timestamp}/"
-        )
+        folder_path = self.results_path + f'{self.target_dist}_{self.epochs}_{self.mean}_{self.variance}_{timestamp}/'
         os.makedirs(folder_path, exist_ok=True)
         return folder_path
 
     def plot_and_save(self):
         folder_path = self.create_result_folder()
-        self.plot_results(folder_path)
+
+        noise = self.sample_noise(plot=self.plot_size)
+        generated_data = self.generator(noise).numpy().flatten()
+        wasserstein_dist = self.wasserstein_distance(self.plot_size)
+        self.plot_results_pdf(folder_path, generated_data, wasserstein_dist)
+        self.plot_results_old(folder_path, generated_data, wasserstein_dist)
+
         self.plot_losses(folder_path)
-        self.save_parameters_to_json(folder_path)
+        self.save_parameters_to_json(folder_path, wasserstein_dist)
 
 
 def simple_main(hyperparameters):
@@ -256,7 +242,7 @@ if __name__ == "__main__":
 
     hyperparameters = {
         'training': {
-            'epochs': 500,
+            'epochs': 30,
             'save_frequency': 10,
             'batch_size': 64,
             'update_ratio_critic': 2,
@@ -273,14 +259,14 @@ if __name__ == "__main__":
         },
         'distributions': {
             'mean': 1,
-            'variance': 1,
-            'target_dist': 'gaussian',
+            'variance': 3,
+            'target_dist': 'pareto', # can be uniform, gaussian, pareto or cauchy
             'input_dist': 'uniform'
         },
         'plotting': {
             'plot_size': 10000,
             'n_bins': 100,
-            'results_path': 'results/2-tests/b_mmd_gan_1d/2-extra_tests/'
+            'results_path': 'results/2-tests/b_mmd_gan_1d/'
         }
     }
 

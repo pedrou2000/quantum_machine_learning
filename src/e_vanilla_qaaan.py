@@ -282,16 +282,6 @@ class ClassicalQAAAN(GAN):
                 d_loss_fake_total = 0
                 g_loss_total = 0
 
-
-
-
-    def save_parameters_to_json(self, folder_path):
-        parameters = {
-            'timestamp': time.strftime('%Y-%m-%d %H:%M:%S'),
-            'hyperparameters': self.hyperparameters,
-        }
-        with open(os.path.join(folder_path, 'parameters.json'), 'w') as f:
-            json.dump(parameters, f, indent=4)
     
     def plot_losses(self, folder_path):
         plt.plot(self.rbm_losses, label='RBM Loss')
@@ -307,40 +297,23 @@ class ClassicalQAAAN(GAN):
         plt.savefig(f'{folder_path}losses.png', dpi=300)
         plt.close()
 
-    def plot_results(self, folder_path):
-        # noise = self.sample_noise(plot=True)
-        # generated_data = self.generator.predict(noise, verbose=0).flatten()
+    def wasserstein_distance(self, sample_size):
+        rbm_prior = self.generate_prior(n_samples=1000)
+        gen_samples = self.generator.predict(rbm_prior, verbose=0).flatten()
+        real_samples = self.sample_real_data(plot=sample_size)
+        return wasserstein_distance(real_samples, gen_samples)
+    
+    def plot_and_save(self):
+        folder_path = self.create_result_folder()
+
         rbm_prior = self.generate_prior(n_samples=1000)
         generated_data = self.generator.predict(rbm_prior, verbose=0).flatten()
+        wasserstein_dist = self.wasserstein_distance(self.plot_size)
+        self.plot_results_pdf(folder_path, generated_data, wasserstein_dist)
+        self.plot_results_old(folder_path, generated_data, wasserstein_dist)
 
-        plt.hist(generated_data, bins=self.n_bins, alpha=0.6, label='Generated Data', density=True)
-        plt.ylim(0, 1)
-
-        # Plot PDFs
-        x_values = np.linspace(self.mean - 4 * np.sqrt(self.variance), self.mean + 4 * np.sqrt(self.variance), 1000)
-
-        if self.target_dist == "gaussian":
-            pdf_values = norm.pdf(x_values, loc=self.mean, scale=np.sqrt(self.variance))
-        elif self.target_dist == "uniform":
-            lower_bound = self.mean
-            upper_bound = self.variance
-            scale = upper_bound - lower_bound
-            pdf_values = uniform.pdf(x_values, loc=self.mean, scale=scale)
-        elif self.target_dist == "cauchy":
-            pdf_values = cauchy.pdf(x_values, loc=self.mean, scale=np.sqrt(self.variance))
-        elif self.target_dist == "pareto":
-            pdf_values = pareto.pdf(x_values, b=self.mean, scale=np.sqrt(self.variance))
-
-        pdf_values = pdf_values / (pdf_values.sum() * np.diff(x_values)[0])  # normalize the PDF
-
-        plt.plot(x_values, pdf_values, label="Real PDF")
-
-        plt.legend()
-
-        plt.savefig(f'{folder_path}histogram.png', dpi=300)
-        plt.close()
-
-
+        self.plot_losses(folder_path)
+        self.save_parameters_to_json(folder_path, wasserstein_dist)
 
 
 def simple_main(hyperparameters):
@@ -420,8 +393,8 @@ if __name__ == "__main__":
                 'generator': 1,
                 'rbm': 1,
             },
-            'total_epochs': 100,
-            'train_rbm_every_n': 10,
+            'total_epochs': 30,
+            'train_rbm_every_n': 1,
             'train_rbm_cutoff_epoch': 50,
             'train_rbm_start_epoch': 10,
             'samples_train_rbm': 1,
