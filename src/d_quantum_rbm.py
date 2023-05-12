@@ -138,12 +138,12 @@ class QuantumRBM:
         return sum(self.errors) / len(self.errors)
 
 
-    def generate_sample(self):
+    def generate_sample(self, num_reads=10):
         # Create a random initial visible state
         initial_state = np.random.randint(2, size=self.num_visible)
 
         # Sample the hidden layer based on the initial visible state
-        hidden_sample = self.sample_hidden(initial_state, num_reads=10, best_sol=True)
+        hidden_sample = self.sample_hidden(initial_state, num_reads=num_reads, best_sol=True)
 
         # Compute the probabilities for the generated visible layer
         generated_visible_probs = self.sigmoid(self.visible_biases + np.dot(hidden_sample, self.weights.T))
@@ -175,8 +175,8 @@ class QuantumRBM:
 
         return samples_tensor
 
-    def generate_samples_1_by_1(self, n_samples):
-        return tf.convert_to_tensor(np.array([self.generate_sample() for _ in range(n_samples)]))
+    def generate_samples_1_by_1(self, n_samples, num_reads=10):
+        return tf.convert_to_tensor(np.array([self.generate_sample(num_reads=num_reads) for _ in range(n_samples)]))
 
 
 
@@ -210,7 +210,7 @@ def generate_image(sample, hyperparameters, n_images):
     plt.close()
 
 def main_mnist(hyperparameters, n_images):
-    training_data = load_mnist(n_images, digits=[0  , 1])
+    training_data = load_mnist(n_images, digits=[0])#  , 1])
     training_data = preprocess_mnist(training_data)
 
     qrbm = QuantumRBM(hyperparameters=hyperparameters)
@@ -275,7 +275,7 @@ def main_distributions(hyperparameters, num_samples):
 
 if __name__ == "__main__":
     mnist_main = True
-    num_samples = 10
+    num_samples = 50
     num_bins = 50
     hyperparameters = {
         'network': {

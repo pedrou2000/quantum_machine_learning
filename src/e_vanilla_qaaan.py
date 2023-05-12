@@ -56,7 +56,7 @@ class ClassicalQAAAN(GAN):
         data = (data > 0).astype(int)
         return data
     
-    def reparameterize_vector(self, z, reparam_type='paper', alpha=1, beta_alpha=0.5, beta_beta=0.5):
+    def reparameterize_vector(self, z, reparam_type='gaussian_noise', alpha=1, beta_alpha=0.5, beta_beta=0.5, noise_std_dev=0.3):
         zeta = np.zeros_like(z, dtype=float)
         u = np.random.uniform(0, 1, size=z.shape)
 
@@ -64,14 +64,17 @@ class ClassicalQAAAN(GAN):
             idx = z == 1
             zeta[idx] = 1 - (1 / alpha) * np.log(1 - (1 - np.exp(-2 * alpha)) * u[idx])
             zeta[~idx] = -1
-        elif reparam_type == 'beta':
-            mapped_samples = (z + 1) / 2
-            reparameterized_samples = beta.ppf(u, beta_alpha, beta_beta)
-            zeta = reparameterized_samples * 2 - 1
+        elif reparam_type == 'gaussian_noise':
+            mapped_samples = 2*z-1
+            # print('z', z)
+            noise = np.random.normal(loc=0.0, scale=noise_std_dev, size=mapped_samples.shape)
+            zeta = mapped_samples + noise
+            # print('reparam z', zeta)
         else:
-            raise ValueError("Invalid reparam_type. Accepted values are 'current' and 'beta'")
+            raise ValueError("Invalid reparam_type. Accepted values are 'paper', 'beta', and 'gaussian_noise'")
 
         return zeta
+
         
     def generate_prior(self, n_samples=None, n_batches=None, n_lists=None):
         if n_samples is None:
@@ -100,7 +103,7 @@ class ClassicalQAAAN(GAN):
             rbm_prior_chunks = [samples]
 
         rbm_prior = np.concatenate(rbm_prior_chunks)
-        rbm_prior = self.reparameterize_vector(rbm_prior, reparam_type='paper', alpha=1)
+        rbm_prior = self.reparameterize_vector(rbm_prior, reparam_type='gaussian_noise', alpha=1)
 
         # If n_batches and n_lists are specified, reshape the samples into a list of lists of batches
         if n_batches is not None and n_lists is not None:
@@ -121,6 +124,7 @@ class ClassicalQAAAN(GAN):
     def train(self):
         real_labels = np.ones((self.batch_size, 1))
         fake_labels = np.zeros((self.batch_size, 1))
+        num_reads = 10
 
         d_loss_real_total = 0
         d_loss_fake_total = 0
@@ -306,7 +310,7 @@ class ClassicalQAAAN(GAN):
     def plot_and_save(self):
         folder_path = self.create_result_folder()
 
-        rbm_prior = self.generate_prior(n_samples=1000)
+        rbm_prior = self.generate_prior(n_samples=10000)[:1000]
         generated_data = self.generator.predict(rbm_prior, verbose=0).flatten()
         wasserstein_dist = self.wasserstein_distance(self.plot_size)
         self.plot_results_pdf(folder_path, generated_data, wasserstein_dist)
@@ -393,22 +397,22 @@ if __name__ == "__main__":
                 'generator': 1,
                 'rbm': 1,
             },
-            'total_epochs': 30,
+            'total_epochs': 100,
             'train_rbm_every_n': 1,
-            'train_rbm_cutoff_epoch': 50,
+            'train_rbm_cutoff_epoch': 100,
             'train_rbm_start_epoch': 10,
-            'samples_train_rbm': 1,
+            'samples_train_rbm': 5,
             'batch_size': 100,
-            'save_frequency': 10,
+            'save_frequency': 1,
             'gan_learning_rate': 0.001,
-            'rbm_learning_rate': 0.1,
+            'rbm_learning_rate': 0.001,
             'rbm_epochs': 1,
             'rbm_verbose': False,
         },
         'network': {
-            'rbm_type': 'classical',  # Can be classical, simulated, or quantum.
-            'feature_layer_size': 20,
-            'rbm_num_hidden': 20,
+            'rbm_type': 'quantum',  # Can be classical, simulated, or quantum.
+            'feature_layer_size': 50,
+            'rbm_num_hidden': 50,
             'layers_generator': [2, 13, 7, 1],
             'layers_discriminator': [11, 29, 11, 1],
         },
