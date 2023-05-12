@@ -51,9 +51,16 @@ class ClassicalRBM:
                 hidden_probs = self.calc_prob_hidden(sample)
 
                 # Update the weights and biases
-                self.weights += self.lr * (np.outer(sample, hidden_probs) - np.outer(visible_sample, hidden_sample))
-                self.visible_biases += self.lr * (sample - visible_sample)
-                self.hidden_biases += self.lr * (hidden_probs - hidden_sample)
+                hidden_2 = False
+                if hidden_2:
+                    hidden_sample_2 = self.sample_hidden(visible_sample)
+                    self.weights += self.lr * (np.outer(sample, hidden_probs) - np.outer(visible_sample, hidden_sample_2))
+                    self.visible_biases += self.lr * (sample - visible_sample)
+                    self.hidden_biases += self.lr * (hidden_probs - hidden_sample_2)
+                else:
+                    self.weights += self.lr * (np.outer(sample, hidden_probs) - np.outer(visible_sample, hidden_sample))
+                    self.visible_biases += self.lr * (sample - visible_sample)
+                    self.hidden_biases += self.lr * (hidden_probs - hidden_sample)
 
                 # Update the total error
                 total_error += np.mean((sample - visible_sample) ** 2)
@@ -89,13 +96,20 @@ class ClassicalRBM:
 
 def preprocess_data(data):
     data = data / 255.0
+    print(data[0][:20])
     data = (data > 0.5).astype(int)
     data = data.reshape(-1, 784)
     return data
 
-def load_mnist(n_images):
+def load_mnist(n_images, digits=None):
     (x_train, y_train), (_, _) = mnist.load_data()
-    return x_train[0:n_images]
+    
+    if digits is not None:
+        digit_indices = np.isin(y_train, digits)
+        x_train = x_train[digit_indices]
+        y_train = y_train[digit_indices]
+    
+    return x_train[:n_images]
 
 def generate_image(sample, hyperparameters):
     # Display the generated image
@@ -105,9 +119,8 @@ def generate_image(sample, hyperparameters):
     plt.close()
 
 
-
 def main(hyperparameters, n_images):
-    training_data = load_mnist(n_images)
+    training_data = load_mnist(n_images, digits=[0])#, 1])
     training_data = preprocess_data(training_data)
 
     rbm = ClassicalRBM(hyperparameters=hyperparameters)
@@ -117,14 +130,14 @@ def main(hyperparameters, n_images):
     generate_image(new_sample, hyperparameters)
 
 if __name__ == "__main__":
-    n_images = 10
+    n_images = 4
     hyperparameters = {
         'network': {
             'num_visible': 784,
             'num_hidden': 20
         },
         'training': {
-            'epochs': 10,
+            'epochs': 100,
             'lr': 0.1,
             'verbose': True,
         },

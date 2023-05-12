@@ -23,6 +23,14 @@ class QuantumRBM:
         self.hidden_biases = np.zeros(self.num_hidden)
         self.counter = 0
 
+        if self.qpu:
+            self.sampler = EmbeddingComposite(DWaveSampler())
+            self.sampler_name = self.sampler.child.solver.name
+        else:
+            self.sampler = SimulatedAnnealingSampler()
+            self.sampler_name = "Simulated Annealing"
+
+
     def create_visible_hamiltonian(self, visible_biases, weights, hidden_biases):
         hamiltonian = 0
         hidden_variables = [Binary(str(j)) for j in range(len(hidden_biases))]
@@ -49,48 +57,49 @@ class QuantumRBM:
 
         return hamiltonian, visible_variables
 
-    def quantum_annealing(self, hamiltonian, num_reads=1):
+    def quantum_annealing(self, hamiltonian, num_reads=1, best_sol=False):
         model = hamiltonian.compile()
         bqm = model.to_bqm()
 
-        if self.qpu:
-            sampler = EmbeddingComposite(DWaveSampler())
-        else:
-            sampler = SimulatedAnnealingSampler()
+        sampleset = self.sampler.sample(bqm, num_reads=num_reads)
+        
+        if num_reads == 1 or best_sol:
+            result_dict = sampleset.first.sample
+            # Convert keys to integers and sort the dictionary by keys
+            sorted_result = dict(sorted((int(key), value) for key, value in result_dict.items()))
 
-        sampleset = sampler.sample(bqm, num_reads=num_reads)
-        solutions = []
+            # Convert the sorted dictionary values to a list
+            result_list = list(sorted_result.values())
+            return result_list
+        else: 
+            solutions = []
+            for sample in sampleset.record:
+                solution = sample[0]
+                num_occurrences = sample[2]
+                solution_list = [(k, v) for k, v in enumerate(solution)]
+                solution_list.sort(key=lambda tup: int(tup[0]))
+                solution_list_final = [v for (k, v) in solution_list]
 
-        for sample in sampleset.record:
-            solution = sample[0]
-            num_occurrences = sample[2]
-            solution_list = [(k, v) for k, v in enumerate(solution)]
-            solution_list.sort(key=lambda tup: int(tup[0]))
-            solution_list_final = [v for (k, v) in solution_list]
-
-            for _ in range(num_occurrences):
-                solutions.append(solution_list_final)
-
-        if len(solutions) == 1:
-            return solutions[0]
-        else:
+                for _ in range(num_occurrences):
+                    solutions.append(solution_list_final)
+        
             return solutions
 
 
-    def sample_hidden(self, visible_vector, num_reads=1):
+    def sample_hidden(self, visible_vector, num_reads=1, best_sol=False):
         hamiltonian, hidden_variables = self.create_visible_hamiltonian(visible_vector, self.weights, self.hidden_biases)
-        hidden_samples = self.quantum_annealing(hamiltonian, num_reads=num_reads)
+        hidden_samples = self.quantum_annealing(hamiltonian, num_reads=num_reads, best_sol=best_sol)
         return hidden_samples
 
-    def sample_visible(self, hidden_vector, num_reads=1):
+    def sample_visible(self, hidden_vector, num_reads=1, best_sol=False):
         hamiltonian, visible_variables = self.create_hidden_hamiltonian(self.visible_biases, self.weights, hidden_vector)
-        visible_samples = self.quantum_annealing(hamiltonian, num_reads=num_reads)
+        visible_samples = self.quantum_annealing(hamiltonian, num_reads=num_reads, best_sol=best_sol)
         return visible_samples
 
     def sigmoid(self, x):
         return 1 / (1 + np.exp(-x))
 
-    def train(self, training_data, num_reads=10):
+    def train(self, training_data, num_reads=100):
         self.errors = []
 
         for epoch in range(self.epochs):
@@ -100,14 +109,10 @@ class QuantumRBM:
 
             for sample in training_data:
                 # Sample the hidden layer based on visible layer samples
-                hidden_sample = self.sample_hidden(sample, num_reads=num_reads)
-                if num_reads > 1:
-                    hidden_sample = np.mean(hidden_sample, axis=0)
+                hidden_sample = self.sample_hidden(sample, num_reads=num_reads, best_sol=True)
 
                 # Sample the visible layer based on hidden layer samples
-                visible_sample = self.sample_visible(hidden_sample, num_reads=num_reads)
-                if num_reads > 1:
-                    visible_sample = np.mean(visible_sample, axis=0)
+                visible_sample = self.sample_visible(hidden_sample, num_reads=num_reads, best_sol=True)
 
                 # Compute the probabilities for the hidden layer
                 hidden_probs = self.sigmoid(self.hidden_biases + np.dot(sample, self.weights))
@@ -138,7 +143,7 @@ class QuantumRBM:
         initial_state = np.random.randint(2, size=self.num_visible)
 
         # Sample the hidden layer based on the initial visible state
-        hidden_sample = self.sample_hidden(initial_state)
+        hidden_sample = self.sample_hidden(initial_state, num_reads=10, best_sol=True)
 
         # Compute the probabilities for the generated visible layer
         generated_visible_probs = self.sigmoid(self.visible_biases + np.dot(hidden_sample, self.weights.T))
@@ -153,7 +158,7 @@ class QuantumRBM:
         initial_state = np.random.randint(2, size=self.num_visible)
 
         # Sample the hidden layer based on the initial visible state
-        hidden_samples = self.sample_hidden(initial_state, num_reads=n_samples)
+        hidden_samples = self.sample_hidden(initial_state, num_reads=n_samples, best_sol=False)
     
         generated_visible_samples = []
 
@@ -205,10 +210,11 @@ def generate_image(sample, hyperparameters, n_images):
     plt.close()
 
 def main_mnist(hyperparameters, n_images):
-    training_data = load_mnist(n_images, digits=[0, 1])
+    training_data = load_mnist(n_images, digits=[0  , 1])
     training_data = preprocess_mnist(training_data)
 
     qrbm = QuantumRBM(hyperparameters=hyperparameters)
+    print('System Solver:', qrbm.sampler_name)
     qrbm.train(training_data)
     new_sample = qrbm.generate_sample()
 
@@ -269,7 +275,7 @@ def main_distributions(hyperparameters, num_samples):
 
 if __name__ == "__main__":
     mnist_main = True
-    num_samples = 4
+    num_samples = 10
     num_bins = 50
     hyperparameters = {
         'network': {
@@ -278,7 +284,7 @@ if __name__ == "__main__":
             'qpu': True,
         },
         'training': {
-            'epochs': 2,
+            'epochs': 10,
             'lr': 0.1,
             'verbose': True,
         },
