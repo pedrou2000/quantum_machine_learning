@@ -22,7 +22,7 @@ class MMD_QAAAN(MMD_GAN):
         self.train_rbm_cutoff_epoch = hyperparameters['hyperparameters_qaaan']['training']['train_rbm_cutoff_epoch']
         self.train_rbm_start_epoch = hyperparameters['hyperparameters_qaaan']['training']['train_rbm_start_epoch']
 
-        super().__init__(hyperparameters['hyperparameters_mmd_gan'])
+        super().__init__(hyperparameters)
         self.hyperparameters = hyperparameters
 
         # Create a new model to extract intermediate layer output
@@ -128,6 +128,7 @@ class MMD_QAAAN(MMD_GAN):
         rbm_loss_total = 0
         rbm_loss = 0
         average_critic_loss = 0
+        wasserstein_dist = 0
         average_gen_loss = 0
 
         rbm_prior_critic = self.generate_prior(n_batches=self.update_ratios['critic'])
@@ -210,21 +211,24 @@ class MMD_QAAAN(MMD_GAN):
                 average_gen_loss += generator_loss
 
 
+            wasserstein_dist += self.wasserstein_distance(rbm_prior=rbm_prior)#self.plot_size)
 
 
             # Save losses
             if epoch % self.save_frequency == 0:
-
                 average_gen_loss /= self.save_frequency
                 average_critic_loss /= self.save_frequency
                 rbm_loss_total /= self.save_frequency
+                wasserstein_dist /= self.save_frequency
                 self.generator_losses.append(average_gen_loss)
                 self.critic_losses.append(average_critic_loss)
                 self.rbm_losses.append(rbm_loss_total)
+                self.wasserstein_dists.append(wasserstein_dist)
                 print(f"Epoch {epoch}: generator MMD = {average_gen_loss:.4f}, critic MMD = {average_critic_loss:.4f}, RBM Loss: {rbm_loss_total:.4f}")
                 average_gen_loss = 0
                 average_critic_loss = 0
                 rbm_loss_total = 0
+                wasserstein_dist = 0
 
     def train_2(self):
         real_data = self.sample_real_data()
@@ -326,17 +330,22 @@ class MMD_QAAAN(MMD_GAN):
         plt.plot(self.critic_losses, label='Critic MMD')
         plt.plot(self.generator_losses, label='Generator MMD')
         plt.plot(self.rbm_losses, label='RBM Loss')
-        plt.xlabel('Epoch x '+str(self.save_frequency))
+        # plt.plot(self.wasserstein_dists, label='Wasserstein Distance')
+        plt.xlabel('Epoch / '+str(self.save_frequency))
         plt.ylabel('MMD')
         plt.legend()
         plt.title('MMDs')
         # plt.ylim(0, 2)
 
+        margin_axis = 0.09
+        margin_no_axes = -0.01
+        plt.subplots_adjust(left=margin_axis, right=1+margin_no_axes, bottom=margin_axis, top=1+margin_no_axes-0.01)
         plt.savefig(f'{folder_path}losses.png', dpi=300)
         plt.close()
 
-    def wasserstein_distance(self, sample_size):
-        rbm_prior = self.generate_prior(n_samples=1000)
+    def wasserstein_distance(self, sample_size=1000, rbm_prior=None):
+        if rbm_prior is None:
+            rbm_prior = self.generate_prior(n_samples=sample_size)
         gen_samples = self.generator.predict(rbm_prior, verbose=0).flatten()
         real_samples = self.sample_real_data(plot=sample_size)
         return wasserstein_distance(real_samples, gen_samples)
@@ -346,34 +355,14 @@ class MMD_QAAAN(MMD_GAN):
 
         rbm_prior = self.generate_prior(n_samples=1000)
         generated_data = self.generator.predict(rbm_prior, verbose=0).flatten()
-        wasserstein_dist = self.wasserstein_distance(self.plot_size)
-        self.plot_results_pdf(folder_path, generated_data, wasserstein_dist)
-        self.plot_results_old(folder_path, generated_data, wasserstein_dist)
+        self.wasserstein_dist = self.wasserstein_distance()
+        self.plot_results_pdf(folder_path, generated_data, self.wasserstein_dist)
+        self.plot_results_old(folder_path, generated_data, self.wasserstein_dist)
 
         self.plot_losses(folder_path)
-        self.save_parameters_to_json(folder_path, wasserstein_dist)
+        self.plot_wasserstein(folder_path)
+        self.save_parameters_to_json(folder_path, self.wasserstein_dist)
 
-
-def simple_main(hyperparameters):
-    gan = MMD_QAAAN(hyperparameters)
-    gan.train()
-    gan.plot_and_save()
-
-def complex_main(hyperparameters):
-    feature_layer_sizes = [1, 5, 10, 20]
-    num_hiddens = feature_layer_sizes
-    hyperparameters['hyperparameters_gan']['plotting']['results_path'] = 'results/2-tests/e_vanilla_qaaan/f_classical_different_rbm_sizes/'
-
-    for i in feature_layer_sizes:
-        hyperparameters['hyperparameters_qaaan']['feature_layer_size'] = i
-        hyperparameters['hyperparameters_gan']['network']['latent_dim'] = i
-        hyperparameters['hyperparameters_rbm']['network']['num_visible'] = i
-        for j in num_hiddens:
-            hyperparameters['hyperparameters_rbm']['network']['num_hidden'] = j 
-
-            gan = ClassicalQAAAN(hyperparameters)
-            gan.train()
-            gan.plot_and_save()
 
 
 def create_hyperparameters_mmd_gan(hyperparams_qaaan):
@@ -426,28 +415,31 @@ def create_hyperparameters_rbm(hyperparams_qaaan):
 
 
 if __name__ == "__main__":
-    one_run = True
+    GANClass = MMD_QAAAN
+    main_type = 'one_run' # can be one_run, update_ratios, lr, distributions
+    num_runs = 1
+    test = False
 
     hyperparameters_qaaan = {
         'training': {
             'update_ratios': {
-                'critic': 5,
+                'critic': 3,
                 'generator': 1,
                 'rbm': 1,
             },
-            'total_epochs': 100,
-            'train_rbm_every_n': 1,
-            'train_rbm_cutoff_epoch': 50,
+            'total_epochs': 1000,
+            'train_rbm_every_n': 5,
+            'train_rbm_cutoff_epoch': 1000,
             'train_rbm_start_epoch': 1,
             'samples_train_rbm': 5,
             'batch_size': 100,
             'save_frequency': 1,
-            'mmd_gan_learning_rate': 0.001,
-            'rbm_learning_rate': 0.001,
+            'mmd_gan_learning_rate': 0.0001,
+            'rbm_learning_rate': 0.0001,
             'rbm_epochs': 1,
             'rbm_verbose': False,
             'mmd_lamb': 0.01,
-            'clip': 1,
+            'clip': 0.5,
             'sigmas': [1, 2, 4, 8, 16],
         },
         'network': {
@@ -463,14 +455,17 @@ if __name__ == "__main__":
             'rbm_folder_path': None,
         },
         'distributions': {
-            'mean': 1,
+            'mean': 3,
             'variance': 1,
-            'target_dist': 'gaussian',
+            'target_dist': 'gaussian', # can be uniform, gaussian, pareto or cauchy
             'input_dist': 'uniform',
         },
     }
 
-    hyperparameters_qaaan['plotting']['results_path'] = 'results/2-tests/f_mmd_qaaan/' + hyperparameters_qaaan['network']['rbm_type'] + '/'
+    if test: 
+        hyperparameters_qaaan['plotting']['results_path'] = 'results/3-final_tests/f_mmd_qaaan/0-tests/' + hyperparameters_qaaan['network']['rbm_type'] + '/'
+    else:
+        hyperparameters_qaaan['plotting']['results_path'] = 'results/3-final_tests/f_mmd_qaaan/different_'+ main_type + '/'
 
     hyperparameters_mmd_gan = create_hyperparameters_mmd_gan(hyperparameters_qaaan)
     hyperparameters_rbm = create_hyperparameters_rbm(hyperparameters_qaaan)
@@ -478,14 +473,19 @@ if __name__ == "__main__":
 
     hyperparameters = {
         'hyperparameters_qaaan': hyperparameters_qaaan,
-        'hyperparameters_mmd_gan': hyperparameters_mmd_gan,
+        'hyperparameters_gan': hyperparameters_mmd_gan,
         'hyperparameters_rbm': hyperparameters_rbm,
     }
 
 
-    if one_run:
-        simple_main(hyperparameters=hyperparameters)
-    else:
-        complex_main(hyperparameters=hyperparameters)
+    if main_type == 'one_run':
+        simple_main(hyperparameters=hyperparameters, GANClass=GANClass)
+    elif main_type == 'update_ratios':
+        main_different_update_ratios(hyperparameters=hyperparameters, GANClass=GANClass, num_runs=num_runs)
+    elif main_type == 'lr':
+        main_different_lrs(hyperparameters=hyperparameters, GANClass=GANClass, num_runs=num_runs)
+    elif main_type == 'distributions':
+        main_different_distributions(hyperparameters=hyperparameters, GANClass=GANClass, num_runs=num_runs)
+
 
 

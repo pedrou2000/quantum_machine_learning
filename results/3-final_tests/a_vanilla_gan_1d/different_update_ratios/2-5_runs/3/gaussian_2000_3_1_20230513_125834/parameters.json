@@ -1,0 +1,39 @@
+{
+    "wasserstein_distance": 0.135,
+    "timestamp": "2023-05-13 12:58:36",
+    "hyperparameters": {
+        "training": {
+            "epochs": 2000,
+            "batch_size": 128,
+            "save_frequency": 20,
+            "update_ratio_critic": 3,
+            "learning_rate": 0.001
+        },
+        "network": {
+            "latent_dim": 2,
+            "layers_gen": [
+                7,
+                13,
+                7,
+                1
+            ],
+            "layers_disc": [
+                11,
+                29,
+                11,
+                1
+            ]
+        },
+        "distributions": {
+            "mean": 3,
+            "variance": 1,
+            "target_dist": "gaussian",
+            "input_dist": "uniform"
+        },
+        "plotting": {
+            "plot_size": 10000,
+            "n_bins": 100,
+            "results_path": "results/3-final_tests/a_vanilla_gan_1d/2-different_update_ratios/2-5_runs/3/"
+        }
+    }
+}

@@ -15,52 +15,37 @@ from a_vanilla_gan_1d import *
 
 class MMD_GAN(GAN):
     def __init__(self, hyperparameters):
-        self.hyperparameters = hyperparameters
-        self.latent_dim = hyperparameters['network']['latent_dim']
-        self.gen_hidden_units = hyperparameters['network']['gen_hidden_units']
-        self.critic_hidden_units = hyperparameters['network']['critic_hidden_units']
-        self.gen_lr = hyperparameters['training']['lr']
-        self.critic_lr = hyperparameters['training']['lr']
-        self.epochs = hyperparameters['training']['epochs']
-        self.batch_size = hyperparameters['training']['batch_size']
-        self.update_ratio_critic = hyperparameters['training']['update_ratio_critic']
-        self.update_ratio_gen = hyperparameters['training']['update_ratio_gen']
-        self.mean = hyperparameters['distributions']['mean']
-        self.variance = hyperparameters['distributions']['variance']
-        self.results_path = hyperparameters['plotting']['results_path']
-        self.save_frequency = hyperparameters['training']['save_frequency']
-        self.mmd_lamb = hyperparameters['training']['mmd_lamb']
-        self.sigmas = hyperparameters['training']['sigmas']
-        self.clip = hyperparameters['training']['clip']
-        self.target_dist = hyperparameters['distributions']['target_dist']
-        self.input_dist = hyperparameters['distributions']['input_dist']
-        self.plot_size = hyperparameters['plotting']['plot_size']
-        self.n_bins = hyperparameters['plotting']['n_bins']
+        self.hyperparameters = hyperparameters['hyperparameters_gan']
+        self.latent_dim = self.hyperparameters['network']['latent_dim']
+        self.gen_hidden_units = self.hyperparameters['network']['gen_hidden_units']
+        self.critic_hidden_units = self.hyperparameters['network']['critic_hidden_units']
+        self.gen_lr = self.hyperparameters['training']['lr']
+        self.critic_lr = self.hyperparameters['training']['lr']
+        self.epochs = self.hyperparameters['training']['epochs']
+        self.batch_size = self.hyperparameters['training']['batch_size']
+        self.update_ratio_critic = self.hyperparameters['training']['update_ratio_critic']
+        self.update_ratio_gen = self.hyperparameters['training']['update_ratio_gen']
+        self.mean = self.hyperparameters['distributions']['mean']
+        self.variance = self.hyperparameters['distributions']['variance']
+        self.results_path = self.hyperparameters['plotting']['results_path']
+        self.save_frequency = self.hyperparameters['training']['save_frequency']
+        self.mmd_lamb = self.hyperparameters['training']['mmd_lamb']
+        self.sigmas = self.hyperparameters['training']['sigmas']
+        self.clip = self.hyperparameters['training']['clip']
+        self.target_dist = self.hyperparameters['distributions']['target_dist']
+        self.input_dist = self.hyperparameters['distributions']['input_dist']
+        self.plot_size = self.hyperparameters['plotting']['plot_size']
+        self.n_bins = self.hyperparameters['plotting']['n_bins']
 
         self.generator_losses = []
         self.critic_losses = []
+        self.wasserstein_dists = []
 
         self.generator = self.create_generator()
         self.critic = self.create_critic()
 
         self.generator_optimizer = Adam(learning_rate=self.gen_lr)
         self.critic_optimizer = Adam(learning_rate=self.critic_lr)
-
-    def sample_real_data(self, plot=False):
-        size = self.batch_size
-        if plot:
-            size = plot
-        if self.target_dist == "gaussian":
-            samples = np.random.normal(self.mean, self.variance, size)
-        elif self.target_dist == "uniform":
-            samples = np.random.uniform(self.mean, self.variance, size)
-        elif self.target_dist == "cauchy":
-            samples = cauchy.rvs(self.mean, self.variance, size)
-        elif self.target_dist == "pareto":
-            b = self.mean  # Shape parameter for Pareto distribution
-            scale = self.variance  # Scale parameter for Pareto distribution
-            samples = pareto.rvs(b, scale=scale, size=size)
-        return samples
     
     def sample_noise(self, plot=False):
         size = self.batch_size
@@ -124,6 +109,7 @@ class MMD_GAN(GAN):
     def train(self):
         average_critic_loss = 0
         average_gen_loss = 0
+        wasserstein_dist = 0
 
         for epoch in range(self.epochs):
 
@@ -160,25 +146,35 @@ class MMD_GAN(GAN):
                 generator_gradients = tape.gradient(generator_loss, self.generator.trainable_variables)
                 self.generator_optimizer.apply_gradients(zip(generator_gradients, self.generator.trainable_variables))
                 average_gen_loss += generator_loss
+            
+            wasserstein_dist += self.wasserstein_distance(1000)#self.plot_size)
 
             # Registering Results
             if epoch % self.save_frequency == 0:
                 average_gen_loss /= self.save_frequency
                 average_critic_loss /= self.save_frequency
+                wasserstein_dist /= self.save_frequency
                 self.generator_losses.append(average_gen_loss)
                 self.critic_losses.append(average_critic_loss)
+                self.wasserstein_dists.append(wasserstein_dist)
                 print(f"Epoch {epoch}: generator MMD = {average_gen_loss:.4f}, critic MMD = {average_critic_loss:.4f}")
                 average_gen_loss = 0
                 average_critic_loss = 0
+                wasserstein_dist = 0
 
 
     def plot_losses(self, folder_path):
         plt.plot(self.critic_losses, label='Critic MMD')
         plt.plot(self.generator_losses, label='Generator MMD')
-        plt.xlabel('Epoch x '+str(self.save_frequency))
-        plt.ylabel('MMD')
+        # plt.plot(self.wasserstein_dists, label='Wasserstein Distance')
+        plt.xlabel('Epoch / '+str(self.save_frequency))
+        plt.ylabel('MMD Loss')
         plt.legend()
-        plt.title('MMDs')
+        # plt.title('MMDs')
+
+        margin_axis = 0.09
+        margin_no_axes = -0.01
+        plt.subplots_adjust(left=margin_axis, right=1+margin_no_axes, bottom=margin_axis, top=1+margin_no_axes-0.01)
 
         plt.savefig(f'{folder_path}losses.png', dpi=300)
         plt.close()
@@ -199,7 +195,7 @@ class MMD_GAN(GAN):
             json.dump(parameters, f, indent=4)
 
     def create_result_folder(self):
-        timestamp = time.strftime("%m%d_%H%M")
+        timestamp = time.strftime("%m%d_%H%M%S")
         folder_path = self.results_path + f'{self.target_dist}_{self.epochs}_{self.mean}_{self.variance}_{timestamp}/'
         os.makedirs(folder_path, exist_ok=True)
         return folder_path
@@ -209,68 +205,61 @@ class MMD_GAN(GAN):
 
         noise = self.sample_noise(plot=self.plot_size)
         generated_data = self.generator(noise).numpy().flatten()
-        wasserstein_dist = self.wasserstein_distance(self.plot_size)
-        self.plot_results_pdf(folder_path, generated_data, wasserstein_dist)
-        self.plot_results_old(folder_path, generated_data, wasserstein_dist)
+        self.wasserstein_dist = self.wasserstein_distance(self.plot_size)
+        self.plot_results_pdf(folder_path, generated_data, self.wasserstein_dist)
+        self.plot_results_old(folder_path, generated_data, self.wasserstein_dist)
 
         self.plot_losses(folder_path)
-        self.save_parameters_to_json(folder_path, wasserstein_dist)
+        self.plot_wasserstein(folder_path)
+        self.save_parameters_to_json(folder_path, self.wasserstein_dist)
 
-
-def simple_main(hyperparameters):
-    mmd_gan = MMD_GAN(hyperparameters)  
-    mmd_gan.train()
-    mmd_gan.plot_and_save()
-
-def complex_main(hyperparameters):
-    target_dists = ["gaussian", "uniform"]
-    input_dists = ["gaussian", "uniform"]
-
-    for taget_dist in target_dists:
-        hyperparameters['distributions']['taget_dist'] = taget_dist
-        
-        for input_dist in input_dists:
-            hyperparameters['distributions']['input_dist'] = input_dist
-
-            mmd_gan = MMD_GAN(hyperparameters)  
-            mmd_gan.train()
-            mmd_gan.plot_and_save()
 
 
 if __name__ == "__main__":
-    one_run = True
+    GANClass = MMD_GAN
+    main_type = 'distributions' # can be one_run, update_ratios, lr, distributions
+    num_runs = 2
 
     hyperparameters = {
-        'training': {
-            'epochs': 30,
-            'save_frequency': 10,
-            'batch_size': 64,
-            'update_ratio_critic': 2,
-            'update_ratio_gen': 1,
-            'lr': 1e-3,
-            'mmd_lamb': 0.01,
-            'clip': 1,
-            'sigmas': [1, 2, 4, 8, 16]
-        },
-        'network': {
-            'latent_dim': 2,
-            'gen_hidden_units': [7, 13, 7],
-            'critic_hidden_units': [11, 29, 11]
-        },
-        'distributions': {
-            'mean': 1,
-            'variance': 3,
-            'target_dist': 'pareto', # can be uniform, gaussian, pareto or cauchy
-            'input_dist': 'uniform'
-        },
-        'plotting': {
-            'plot_size': 10000,
-            'n_bins': 100,
-            'results_path': 'results/2-tests/b_mmd_gan_1d/'
+        'hyperparameters_gan': {
+
+            'training': {
+                'epochs': 10000,
+                'save_frequency': 100,
+                'batch_size': 64,
+                'update_ratio_critic': 3,
+                'update_ratio_gen': 1,
+                'lr': 0.001,
+                'mmd_lamb': 0.01,
+                'clip': 1,
+                'sigmas': [1, 2, 4, 8, 16]
+            },
+            'network': {
+                'latent_dim': 2,
+                'gen_hidden_units': [7, 13, 7],
+                'critic_hidden_units': [11, 29, 11]
+            },
+            'distributions': {
+                'mean': 1,
+                'variance': 3,
+                'target_dist': 'pareto', # can be uniform, gaussian, pareto or cauchy
+                'input_dist': 'uniform'
+            },
+            'plotting': {
+                'plot_size': 10000,
+                'n_bins': 100,
+                'results_path': 'results/3-final_tests/b_mmd_gan_1d/different_'+ main_type + '/',
+                # 'results_path': 'results/3-final_tests/b_mmd_gan_1d/0-tests/',
+            }
         }
     }
 
-    if one_run:
-        simple_main(hyperparameters=hyperparameters)
-    else:
-        complex_main(hyperparameters=hyperparameters)
+
+    if main_type == 'one_run':
+        simple_main(hyperparameters=hyperparameters, GANClass=GANClass)
+    elif main_type == 'update_ratios':
+        main_different_update_ratios(hyperparameters=hyperparameters, GANClass=GANClass, num_runs=num_runs)
+    elif main_type == 'lr':
+        main_different_lrs(hyperparameters=hyperparameters, GANClass=GANClass, num_runs=num_runs)
+    elif main_type == 'distributions':
+        main_different_distributions(hyperparameters=hyperparameters, GANClass=GANClass, num_runs=num_runs)

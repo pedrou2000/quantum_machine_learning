@@ -1,0 +1,39 @@
+{
+    "wasserstein_distance": 9.264,
+    "timestamp": "2023-05-14 08:54:29",
+    "hyperparameters": {
+        "training": {
+            "epochs": 10,
+            "batch_size": 128,
+            "save_frequency": 1,
+            "update_ratio_critic": 5,
+            "learning_rate": 0.001
+        },
+        "network": {
+            "latent_dim": 2,
+            "layers_gen": [
+                7,
+                13,
+                7,
+                1
+            ],
+            "layers_disc": [
+                11,
+                29,
+                11,
+                1
+            ]
+        },
+        "distributions": {
+            "mean": 3,
+            "variance": 1,
+            "target_dist": "cauchy",
+            "input_dist": "uniform"
+        },
+        "plotting": {
+            "plot_size": 10000,
+            "n_bins": 100,
+            "results_path": "results/3-final_tests/a_vanilla_gan_1d/0-tests/cauchy/"
+        }
+    }
+}
