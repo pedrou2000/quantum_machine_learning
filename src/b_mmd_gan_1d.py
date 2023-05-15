@@ -218,7 +218,7 @@ class MMD_GAN(GAN):
 if __name__ == "__main__":
     GANClass = MMD_GAN
     main_type = 'distributions' # can be one_run, update_ratios, lr, distributions
-    num_runs = 2
+    num_runs = 1
 
     hyperparameters = {
         'hyperparameters_gan': {
@@ -227,7 +227,7 @@ if __name__ == "__main__":
                 'epochs': 10000,
                 'save_frequency': 100,
                 'batch_size': 64,
-                'update_ratio_critic': 3,
+                'update_ratio_critic': 2,
                 'update_ratio_gen': 1,
                 'lr': 0.001,
                 'mmd_lamb': 0.01,
@@ -248,7 +248,7 @@ if __name__ == "__main__":
             'plotting': {
                 'plot_size': 10000,
                 'n_bins': 100,
-                'results_path': 'results/3-final_tests/b_mmd_gan_1d/different_'+ main_type + '/',
+                'results_path': 'results/3-final_tests/b_mmd_gan_1d/1-mean_21/different_'+ main_type + '/',
                 # 'results_path': 'results/3-final_tests/b_mmd_gan_1d/0-tests/',
             }
         }

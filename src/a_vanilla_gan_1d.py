@@ -383,7 +383,7 @@ def main_different_distributions(hyperparameters, GANClass=GAN, num_runs=1):
     distributions = {
         # 'gaussian': [3,1],
         # 'uniform': [1,3],
-        'pareto': [1,3],
+        # 'pareto': [1,3],
         'cauchy': [3,1],
     }
 
@@ -424,15 +424,15 @@ if __name__ == "__main__":
                 'layers_disc': [11, 29, 11, 1],
             },
             'distributions': {
-                'mean': 1,
-                'variance': 3,
-                'target_dist': 'pareto', # can be gaussian, uniform, pareto or cauchy
+                'mean': 21,
+                'variance': 1,
+                'target_dist': 'cauchy', # can be gaussian, uniform, pareto or cauchy
                 'input_dist': 'uniform',
             },
             'plotting': {
                 'plot_size': 10000,
                 'n_bins': 100,
-                'results_path': 'results/3-final_tests/a_vanilla_gan_1d/different_'+ main_type + '/'#2-5_runs/',
+                'results_path': 'results/3-final_tests/a_vanilla_gan_1d/1-mean_21/different_'+ main_type + '/'#2-5_runs/',
                 # 'results_path': 'results/3-final_tests/a_vanilla_gan_1d/0-tests/',
             },
         }

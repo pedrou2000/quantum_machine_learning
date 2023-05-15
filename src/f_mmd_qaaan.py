@@ -416,7 +416,7 @@ def create_hyperparameters_rbm(hyperparams_qaaan):
 
 if __name__ == "__main__":
     GANClass = MMD_QAAAN
-    main_type = 'one_run' # can be one_run, update_ratios, lr, distributions
+    main_type = 'distributions' # can be one_run, update_ratios, lr, distributions
     num_runs = 1
     test = False
 
@@ -427,7 +427,7 @@ if __name__ == "__main__":
                 'generator': 1,
                 'rbm': 1,
             },
-            'total_epochs': 1000,
+            'total_epochs': 900,
             'train_rbm_every_n': 5,
             'train_rbm_cutoff_epoch': 1000,
             'train_rbm_start_epoch': 1,
@@ -457,7 +457,7 @@ if __name__ == "__main__":
         'distributions': {
             'mean': 3,
             'variance': 1,
-            'target_dist': 'gaussian', # can be uniform, gaussian, pareto or cauchy
+            'target_dist': 'cauchy', # can be uniform, gaussian, pareto or cauchy
             'input_dist': 'uniform',
         },
     }
@@ -465,7 +465,7 @@ if __name__ == "__main__":
     if test: 
         hyperparameters_qaaan['plotting']['results_path'] = 'results/3-final_tests/f_mmd_qaaan/0-tests/' + hyperparameters_qaaan['network']['rbm_type'] + '/'
     else:
-        hyperparameters_qaaan['plotting']['results_path'] = 'results/3-final_tests/f_mmd_qaaan/different_'+ main_type + '/'
+        hyperparameters_qaaan['plotting']['results_path'] = 'results/3-final_tests/f_mmd_qaaan/'+ hyperparameters_qaaan['network']['rbm_type'] + '/different_'+ main_type + '/'
 
     hyperparameters_mmd_gan = create_hyperparameters_mmd_gan(hyperparameters_qaaan)
     hyperparameters_rbm = create_hyperparameters_rbm(hyperparameters_qaaan)

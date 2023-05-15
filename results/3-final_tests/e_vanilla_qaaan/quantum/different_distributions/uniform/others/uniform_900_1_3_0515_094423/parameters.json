@@ -1,0 +1,105 @@
+{
+    "wasserstein_distance": 0.152,
+    "timestamp": "2023-05-15 09:44:27",
+    "hyperparameters": {
+        "hyperparameters_qaaan": {
+            "training": {
+                "update_ratios": {
+                    "discriminator": 5,
+                    "generator": 1,
+                    "rbm": 1
+                },
+                "total_epochs": 900,
+                "train_rbm_every_n": 5,
+                "train_rbm_cutoff_epoch": 1000,
+                "train_rbm_start_epoch": 1,
+                "samples_train_rbm": 5,
+                "batch_size": 100,
+                "save_frequency": 1,
+                "gan_learning_rate": 0.0001,
+                "rbm_learning_rate": 0.0001,
+                "rbm_epochs": 1,
+                "rbm_verbose": false
+            },
+            "network": {
+                "rbm_type": "quantum",
+                "feature_layer_size": 50,
+                "rbm_num_hidden": 50,
+                "layers_generator": [
+                    2,
+                    13,
+                    7,
+                    1
+                ],
+                "layers_discriminator": [
+                    11,
+                    29,
+                    11,
+                    1
+                ]
+            },
+            "plotting": {
+                "plot_size": 10000,
+                "n_bins": 100,
+                "rbm_folder_path": null,
+                "results_path": "results/3-final_tests/e_vanilla_qaaan/quantum/different_distributions/"
+            },
+            "distributions": {
+                "mean": 1,
+                "variance": 3,
+                "target_dist": "pareto",
+                "input_dist": "uniform"
+            }
+        },
+        "hyperparameters_gan": {
+            "training": {
+                "epochs": 900,
+                "batch_size": 100,
+                "save_frequency": 1,
+                "update_ratio_critic": 5,
+                "learning_rate": 0.0001
+            },
+            "network": {
+                "latent_dim": 50,
+                "layers_gen": [
+                    2,
+                    13,
+                    7,
+                    1
+                ],
+                "layers_disc": [
+                    11,
+                    29,
+                    11,
+                    1
+                ]
+            },
+            "distributions": {
+                "mean": 1,
+                "variance": 3,
+                "target_dist": "uniform",
+                "input_dist": "uniform"
+            },
+            "plotting": {
+                "plot_size": 10000,
+                "n_bins": 100,
+                "results_path": "results/3-final_tests/e_vanilla_qaaan/quantum/different_distributions/uniform/"
+            }
+        },
+        "hyperparameters_rbm": {
+            "network": {
+                "num_visible": 50,
+                "num_hidden": 50,
+                "qpu": true
+            },
+            "training": {
+                "epochs": 1,
+                "lr": 0.0001,
+                "verbose": false
+            },
+            "plotting": {
+                "folder_path": null
+            }
+        }
+    }
+}

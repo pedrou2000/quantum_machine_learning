@@ -1,0 +1,122 @@
+{
+    "wasserstein_distance": 3.721,
+    "timestamp": "2023-05-14 21:28:38",
+    "hyperparameters": {
+        "hyperparameters_qaaan": {
+            "training": {
+                "update_ratios": {
+                    "critic": 3,
+                    "generator": 1,
+                    "rbm": 1
+                },
+                "total_epochs": 900,
+                "train_rbm_every_n": 5,
+                "train_rbm_cutoff_epoch": 1000,
+                "train_rbm_start_epoch": 1,
+                "samples_train_rbm": 5,
+                "batch_size": 100,
+                "save_frequency": 1,
+                "mmd_gan_learning_rate": 0.0001,
+                "rbm_learning_rate": 0.0001,
+                "rbm_epochs": 1,
+                "rbm_verbose": false,
+                "mmd_lamb": 0.01,
+                "clip": 0.5,
+                "sigmas": [
+                    1,
+                    2,
+                    4,
+                    8,
+                    16
+                ]
+            },
+            "network": {
+                "rbm_type": "quantum",
+                "feature_layer_size": 50,
+                "rbm_num_hidden": 50,
+                "layers_generator": [
+                    2,
+                    13,
+                    7,
+                    1
+                ],
+                "layers_critic": [
+                    11,
+                    29,
+                    11
+                ]
+            },
+            "plotting": {
+                "plot_size": 10000,
+                "n_bins": 100,
+                "rbm_folder_path": null,
+                "results_path": "results/3-final_tests/f_mmd_qaaan/quantum/different_distributions/"
+            },
+            "distributions": {
+                "mean": 3,
+                "variance": 1,
+                "target_dist": "cauchy",
+                "input_dist": "uniform"
+            }
+        },
+        "hyperparameters_gan": {
+            "training": {
+                "epochs": 900,
+                "batch_size": 100,
+                "save_frequency": 1,
+                "update_ratio_critic": 3,
+                "update_ratio_gen": 1,
+                "lr": 0.0001,
+                "mmd_lamb": 0.01,
+                "clip": 0.5,
+                "sigmas": [
+                    1,
+                    2,
+                    4,
+                    8,
+                    16
+                ]
+            },
+            "network": {
+                "latent_dim": 50,
+                "gen_hidden_units": [
+                    2,
+                    13,
+                    7,
+                    1
+                ],
+                "critic_hidden_units": [
+                    11,
+                    29,
+                    11
+                ]
+            },
+            "distributions": {
+                "mean": 3,
+                "variance": 1,
+                "target_dist": "cauchy",
+                "input_dist": "uniform"
+            },
+            "plotting": {
+                "plot_size": 10000,
+                "n_bins": 100,
+                "results_path": "results/3-final_tests/f_mmd_qaaan/quantum/different_distributions/cauchy/"
+            }
+        },
+        "hyperparameters_rbm": {
+            "network": {
+                "num_visible": 50,
+                "num_hidden": 50,
+                "qpu": true
+            },
+            "training": {
+                "epochs": 1,
+                "lr": 0.0001,
+                "verbose": false
+            },
+            "plotting": {
+                "folder_path": null
+            }
+        }
+    }
+}

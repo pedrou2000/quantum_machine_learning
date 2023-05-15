@@ -379,7 +379,7 @@ def create_hyperparameters_rbm(hyperparams_qaaan):
 
 if __name__ == "__main__":
     GANClass = ClassicalQAAAN
-    main_type = 'one_run' # can be one_run, update_ratios, lr, distributions
+    main_type = 'distributions' # can be one_run, update_ratios, lr, distributions
     num_runs = 1
     test = False
 
@@ -390,15 +390,15 @@ if __name__ == "__main__":
                 'generator': 1,
                 'rbm': 1,
             },
-            'total_epochs': 250,
-            'train_rbm_every_n': 1,
+            'total_epochs': 900,
+            'train_rbm_every_n': 5,
             'train_rbm_cutoff_epoch': 1000,
             'train_rbm_start_epoch': 1,
             'samples_train_rbm': 5,
             'batch_size': 100,
             'save_frequency': 1,
-            'gan_learning_rate': 0.001,
-            'rbm_learning_rate': 0.001,
+            'gan_learning_rate': 0.0001,
+            'rbm_learning_rate': 0.0001,
             'rbm_epochs': 1,
             'rbm_verbose': False,
         },
@@ -417,7 +417,7 @@ if __name__ == "__main__":
         'distributions': {
             'mean': 1,
             'variance': 3,
-            'target_dist': 'gaussian', # can be uniform, gaussian, pareto or cauchy
+            'target_dist': 'pareto', # can be uniform, gaussian, pareto or cauchy
             'input_dist': 'uniform',
         },
     }
@@ -425,7 +425,7 @@ if __name__ == "__main__":
     if test: 
         hyperparameters_qaaan['plotting']['results_path'] = 'results/3-final_tests/e_vanilla_qaaan/0-tests/' + hyperparameters_qaaan['network']['rbm_type'] + '/'
     else:
-        hyperparameters_qaaan['plotting']['results_path'] = 'results/3-final_tests/e_vanilla_qaaan/different_'+ main_type + '/'
+        hyperparameters_qaaan['plotting']['results_path'] = 'results/3-final_tests/e_vanilla_qaaan/'+ hyperparameters_qaaan['network']['rbm_type'] + '/different_'+ main_type + '/'
 
     hyperparameters_gan = create_hyperparameters_gan(hyperparameters_qaaan)
     hyperparameters_rbm = create_hyperparameters_rbm(hyperparameters_qaaan)

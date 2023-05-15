@@ -8,8 +8,11 @@ from PIL import Image
 # Define the directories for the Vanilla GAN and MMD GAN
 directory = 'different_distributions'
 image_name = 'histogram_pdf.png'
-vanilla_gan_dir = 'results/3-final_tests/a_vanilla_gan_1d/' + directory + '/'
-mmd_gan_dir = 'results/3-final_tests/b_mmd_gan_1d/' + directory + '/'
+gan_name = 'e_vanilla_qaaan'
+vanilla_gan_dir = 'results/3-final_tests/'+gan_name+'/classical/' + directory + '/'
+mmd_gan_dir = 'results/3-final_tests/'+gan_name+'/quantum/' + directory + '/'
+save_dir = 'results/3-final_tests/'+gan_name+'/'
+save_dir += 'classical_vs_quantum_'+gan_name+'.png'
 
 # Define the subdirectories for the different distributions
 distributions = ['uniform', 'gaussian', 'cauchy', 'pareto']
@@ -18,8 +21,8 @@ distributions = ['uniform', 'gaussian', 'cauchy', 'pareto']
 fig, axs = plt.subplots(len(distributions), 2, figsize=(10, len(distributions)*5))
 
 # Set the column titles
-axs[0, 0].set_title('Vanilla GAN', fontsize=12)
-axs[0, 1].set_title('MMD GAN', fontsize=12)
+axs[0, 0].set_title('Classical Vanilla QAAAN', fontsize=12)
+axs[0, 1].set_title('Quantum Vanilla QAAAN', fontsize=12)
 
 # Iterate over the distributions
 for i, dist in enumerate(distributions):
@@ -75,4 +78,4 @@ for i, dist in enumerate(distributions):
 plt.subplots_adjust(wspace=0.02, hspace=-0.5)
 
 # Save the figure
-plt.savefig('results/3-final_tests/a_vanilla_gan_1d/0-tests/combined_plots.png', bbox_inches='tight', dpi=600)
+plt.savefig(save_dir, bbox_inches='tight', dpi=600)
