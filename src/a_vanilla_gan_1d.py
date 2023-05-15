@@ -255,9 +255,10 @@ class GAN:
         plt.savefig(f'{folder_path}wasserstein.png', dpi=300)
         plt.close()
 
-    def wasserstein_distance(self, sample_size):
-        noise = self.sample_noise(plot=sample_size)
-        gen_samples = self.generator.predict(noise, verbose=0).flatten()
+    def wasserstein_distance(self, sample_size, gen_samples=None):
+        if gen_samples is None:
+            noise = self.sample_noise(plot=sample_size)
+            gen_samples = self.generator.predict(noise, verbose=0).flatten()
         real_samples = self.sample_real_data(plot=sample_size)
         return wasserstein_distance(real_samples, gen_samples)
 
@@ -281,7 +282,7 @@ class GAN:
 
         noise = self.sample_noise(plot=self.plot_size)
         generated_data = self.generator.predict(noise, verbose=0).flatten()
-        self.wasserstein_dist = self.wasserstein_distance(self.plot_size)
+        self.wasserstein_dist = self.wasserstein_distance(self.plot_size, gen_samples=generated_data)
         self.plot_results_pdf(folder_path, generated_data, self.wasserstein_dist)
         self.plot_results_old(folder_path, generated_data, self.wasserstein_dist)
         
@@ -414,7 +415,7 @@ if __name__ == "__main__":
             'training': {
                 'epochs': 10000,
                 'batch_size': 128,
-                'save_frequency': 100,
+                'save_frequency': 10,
                 'update_ratio_critic': 5,
                 'learning_rate': 0.001,
             },
@@ -432,8 +433,8 @@ if __name__ == "__main__":
             'plotting': {
                 'plot_size': 10000,
                 'n_bins': 100,
-                'results_path': 'results/3-final_tests/a_vanilla_gan_1d/1-mean_21/different_'+ main_type + '/'#2-5_runs/',
-                # 'results_path': 'results/3-final_tests/a_vanilla_gan_1d/0-tests/',
+                'results_path': 'results/5-extra_tests/a_vanilla_gan_1d/different_'+ main_type + '/'#2-5_runs/',
+                # 'results_path': 'results/5-extra_tests/a_vanilla_gan_1d/0-tests/',
             },
         }
     }

@@ -4,15 +4,24 @@ import os
 import numpy as np
 from matplotlib.gridspec import GridSpec
 from PIL import Image
+import json
 
 # Define the directories for the Vanilla GAN and MMD GAN
 directory = 'different_distributions'
 image_name = 'histogram_pdf.png'
-gan_name = 'e_vanilla_qaaan'
-vanilla_gan_dir = 'results/3-final_tests/'+gan_name+'/classical/' + directory + '/'
-mmd_gan_dir = 'results/3-final_tests/'+gan_name+'/quantum/' + directory + '/'
-save_dir = 'results/3-final_tests/'+gan_name+'/'
-save_dir += 'classical_vs_quantum_'+gan_name+'.png'
+quantum = False
+if quantum:
+    gan_name = 'e_vanilla_qaaan' # e_vanilla_qaaan, f_mmd_qaaan
+    vanilla_gan_dir = 'results/3-final_tests/'+gan_name+'/classical/' + directory + '/'
+    mmd_gan_dir = 'results/3-final_tests/'+gan_name+'/quantum/' + directory + '/'
+    save_dir = 'results/4-table_plots/'
+    file_name = '2-classical_vs_quantum_'+gan_name
+else:
+    vanilla_gan_dir = 'results/3-final_tests/a_vanilla_gan_1d/' + directory + '/'
+    mmd_gan_dir = 'results/3-final_tests/b_mmd_gan_1d/' + directory + '/'
+    save_dir = 'results/4-table_plots/'
+    file_name = '1-vanilla_vs_mmd_gan'
+
 
 # Define the subdirectories for the different distributions
 distributions = ['uniform', 'gaussian', 'cauchy', 'pareto']
@@ -23,6 +32,8 @@ fig, axs = plt.subplots(len(distributions), 2, figsize=(10, len(distributions)*5
 # Set the column titles
 axs[0, 0].set_title('Classical Vanilla QAAAN', fontsize=12)
 axs[0, 1].set_title('Quantum Vanilla QAAAN', fontsize=12)
+
+latex_table_rows = []
 
 # Iterate over the distributions
 for i, dist in enumerate(distributions):
@@ -72,10 +83,42 @@ for i, dist in enumerate(distributions):
         # Set the row title# Set the row title
         axs[i, 0].text(-0.3,0.5, dist.capitalize(), ha="left", va="center", 
                     transform=axs[i, 0].transAxes, fontsize=12)
+        
+
+        ### Wasserstein Distances table creation
+        # Create the filepaths for the parameters.json files
+        vanilla_gan_params_filepath = os.path.join(vanilla_gan_dir, dist, vanilla_gan_subdir, "parameters.json")
+        mmd_gan_params_filepath = os.path.join(mmd_gan_dir, dist, mmd_gan_subdir, "parameters.json")
+
+        # Load the parameters.json files
+        with open(vanilla_gan_params_filepath, 'r') as f:
+            vanilla_gan_params = json.load(f)
+        with open(mmd_gan_params_filepath, 'r') as f:
+            mmd_gan_params = json.load(f)
+
+        # Get the "wasserstein_distance" parameter
+        vanilla_gan_wasserstein_distance = vanilla_gan_params.get("wasserstein_distance", "N/A")
+        mmd_gan_wasserstein_distance = mmd_gan_params.get("wasserstein_distance", "N/A")
+
+        # Add a row to the LaTeX table
+        latex_table_rows.append(f"{dist.capitalize()} & {vanilla_gan_wasserstein_distance} & {mmd_gan_wasserstein_distance} \\\\")
+
 
 
 # Reduce space between plots
 plt.subplots_adjust(wspace=0.02, hspace=-0.5)
 
 # Save the figure
-plt.savefig(save_dir, bbox_inches='tight', dpi=600)
+plt.savefig(save_dir+file_name+'.png', bbox_inches='tight', dpi=600)
+
+
+# Combine the rows into a string for the LaTeX table
+latex_table = "\\begin{tabular}{|c|c|c|}\n\\hline\n"
+latex_table += "& \multicolumn{2}{c|}{Wasserstein Distance} \\\\\n\\cline{2-3}\n"
+latex_table += "Distribution & Vanilla GAN & MMD GAN \\\\\n\\hline\n"
+latex_table += "\n".join(latex_table_rows)
+latex_table += "\n\\hline\n\\end{tabular}"
+
+# Write the LaTeX table to a .txt file
+with open(save_dir+file_name+'.txt', 'w') as f:
+    f.write(latex_table)

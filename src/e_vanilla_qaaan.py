@@ -310,10 +310,10 @@ class ClassicalQAAAN(GAN):
         plt.savefig(f'{folder_path}losses.png', dpi=300)
         plt.close()
 
-    def wasserstein_distance(self, sample_size=1000, rbm_prior=None):
-        if rbm_prior is None:
+    def wasserstein_distance(self, sample_size=1000, gen_samples=None):
+        if gen_samples is None:
             rbm_prior = self.generate_prior(n_samples=sample_size)
-        gen_samples = self.generator.predict(rbm_prior, verbose=0).flatten()
+            gen_samples = self.generator.predict(rbm_prior, verbose=0).flatten()
         real_samples = self.sample_real_data(plot=sample_size)
         return wasserstein_distance(real_samples, gen_samples)
     
@@ -322,7 +322,7 @@ class ClassicalQAAAN(GAN):
 
         rbm_prior = self.generate_prior(n_samples=10000)[:1000]
         generated_data = self.generator.predict(rbm_prior, verbose=0).flatten()
-        self.wasserstein_dist = self.wasserstein_distance()
+        self.wasserstein_dist = self.wasserstein_distance(gen_samples=generated_data)
         self.plot_results_pdf(folder_path, generated_data, self.wasserstein_dist)
         self.plot_results_old(folder_path, generated_data, self.wasserstein_dist)
 
@@ -423,9 +423,9 @@ if __name__ == "__main__":
     }
 
     if test: 
-        hyperparameters_qaaan['plotting']['results_path'] = 'results/3-final_tests/e_vanilla_qaaan/0-tests/' + hyperparameters_qaaan['network']['rbm_type'] + '/'
+        hyperparameters_qaaan['plotting']['results_path'] = 'results/5-extra_tests/e_vanilla_qaaan/0-tests/' + hyperparameters_qaaan['network']['rbm_type'] + '/'
     else:
-        hyperparameters_qaaan['plotting']['results_path'] = 'results/3-final_tests/e_vanilla_qaaan/'+ hyperparameters_qaaan['network']['rbm_type'] + '/different_'+ main_type + '/'
+        hyperparameters_qaaan['plotting']['results_path'] = 'results/5-extra_tests/e_vanilla_qaaan/'+ hyperparameters_qaaan['network']['rbm_type'] + '/different_'+ main_type + '/'
 
     hyperparameters_gan = create_hyperparameters_gan(hyperparameters_qaaan)
     hyperparameters_rbm = create_hyperparameters_rbm(hyperparameters_qaaan)
