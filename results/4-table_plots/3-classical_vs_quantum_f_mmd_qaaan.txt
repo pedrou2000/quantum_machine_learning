@@ -1,0 +1,12 @@
+\begin{tabular}{|c|c|c|}
+\hline
+& \multicolumn{2}{c|}{Wasserstein Distance} \\
+\cline{2-3}
+Distribution & Vanilla GAN & MMD GAN \\
+\hline
+Uniform & 0.557 & 0.348 \\
+Gaussian & 1.264 & 0.571 \\
+Cauchy & 5.71 & 3.721 \\
+Pareto & 0.783 & 0.996 \\
+\hline
+\end{tabular}

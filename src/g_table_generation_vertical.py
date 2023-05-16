@@ -9,13 +9,13 @@ import json
 # Define the directories for the Vanilla GAN and MMD GAN
 directory = 'different_distributions'
 image_name = 'histogram_pdf.png'
-quantum = False
+quantum = True
 if quantum:
-    gan_name = 'e_vanilla_qaaan' # e_vanilla_qaaan, f_mmd_qaaan
+    gan_name = 'f_mmd_qaaan' # e_vanilla_qaaan, f_mmd_qaaan
     vanilla_gan_dir = 'results/3-final_tests/'+gan_name+'/classical/' + directory + '/'
     mmd_gan_dir = 'results/3-final_tests/'+gan_name+'/quantum/' + directory + '/'
     save_dir = 'results/4-table_plots/'
-    file_name = '2-classical_vs_quantum_'+gan_name
+    file_name = '3-classical_vs_quantum_'+gan_name
 else:
     vanilla_gan_dir = 'results/3-final_tests/a_vanilla_gan_1d/' + directory + '/'
     mmd_gan_dir = 'results/3-final_tests/b_mmd_gan_1d/' + directory + '/'
@@ -30,8 +30,8 @@ distributions = ['uniform', 'gaussian', 'cauchy', 'pareto']
 fig, axs = plt.subplots(len(distributions), 2, figsize=(10, len(distributions)*5))
 
 # Set the column titles
-axs[0, 0].set_title('Classical Vanilla QAAAN', fontsize=12)
-axs[0, 1].set_title('Quantum Vanilla QAAAN', fontsize=12)
+axs[0, 0].set_title('Classical MMD QAAAN', fontsize=12)
+axs[0, 1].set_title('Quantum MMD QAAAN', fontsize=12)
 
 latex_table_rows = []
 

@@ -1,0 +1,47 @@
+{
+    "wasserstein_distance": 0.103,
+    "timestamp": "2023-05-16 12:50:18",
+    "hyperparameters": {
+        "training": {
+            "epochs": 10000,
+            "save_frequency": 100,
+            "batch_size": 64,
+            "update_ratio_critic": 2,
+            "update_ratio_gen": 1,
+            "lr": 0.0001,
+            "mmd_lamb": 0.01,
+            "clip": 1,
+            "sigmas": [
+                1,
+                2,
+                4,
+                8,
+                16
+            ]
+        },
+        "network": {
+            "latent_dim": 2,
+            "gen_hidden_units": [
+                7,
+                13,
+                7
+            ],
+            "critic_hidden_units": [
+                11,
+                29,
+                11
+            ]
+        },
+        "distributions": {
+            "mean": 3,
+            "variance": 1,
+            "target_dist": "gaussian",
+            "input_dist": "uniform"
+        },
+        "plotting": {
+            "plot_size": 10000,
+            "n_bins": 100,
+            "results_path": "results/5-extra_tests/b_mmd_gan_1d/1-mean_21/different_distributions/gaussian/"
+        }
+    }
+}

@@ -382,9 +382,9 @@ def main_different_lrs(hyperparameters, GANClass=GAN, num_runs=1):
 def main_different_distributions(hyperparameters, GANClass=GAN, num_runs=1):
     print('main_different_distributions')
     distributions = {
-        # 'gaussian': [3,1],
-        # 'uniform': [1,3],
-        # 'pareto': [1,3],
+        'gaussian': [3,1],
+        'uniform': [1,3],
+        'pareto': [1,3],
         'cauchy': [3,1],
     }
 
@@ -408,14 +408,14 @@ def main_different_distributions(hyperparameters, GANClass=GAN, num_runs=1):
 if __name__ == "__main__":
     GANClass = GAN
     main_type = 'distributions' # can be one_run, update_ratios, lr, distributions
-    num_runs = 1
+    num_runs = 3
 
     hyperparameters = {
         'hyperparameters_gan': {
             'training': {
                 'epochs': 10000,
                 'batch_size': 128,
-                'save_frequency': 10,
+                'save_frequency': 100,
                 'update_ratio_critic': 5,
                 'learning_rate': 0.001,
             },
@@ -433,7 +433,7 @@ if __name__ == "__main__":
             'plotting': {
                 'plot_size': 10000,
                 'n_bins': 100,
-                'results_path': 'results/5-extra_tests/a_vanilla_gan_1d/different_'+ main_type + '/'#2-5_runs/',
+                'results_path': 'results/5-extra_tests/a_vanilla_gan_1d/1-mean_21/different_'+ main_type + '/'#2-5_runs/',
                 # 'results_path': 'results/5-extra_tests/a_vanilla_gan_1d/0-tests/',
             },
         }
