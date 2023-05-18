@@ -9,18 +9,35 @@ import json
 # Define the directories for the Vanilla GAN and MMD GAN
 directory = 'different_distributions'
 image_name = 'histogram_pdf.png'
-quantum = True
-if quantum:
-    gan_name = 'f_mmd_qaaan' # e_vanilla_qaaan, f_mmd_qaaan
-    vanilla_gan_dir = 'results/3-final_tests/'+gan_name+'/classical/' + directory + '/'
-    mmd_gan_dir = 'results/3-final_tests/'+gan_name+'/quantum/' + directory + '/'
-    save_dir = 'results/4-table_plots/'
-    file_name = '3-classical_vs_quantum_'+gan_name
-else:
-    vanilla_gan_dir = 'results/3-final_tests/a_vanilla_gan_1d/' + directory + '/'
-    mmd_gan_dir = 'results/3-final_tests/b_mmd_gan_1d/' + directory + '/'
-    save_dir = 'results/4-table_plots/'
+save_dir = 'results/4-table_plots/'
+mode = "gan_vs_qaaan_mmd"
+if mode == "e_vanilla_qaaan" or mode == "f_mmd_qaaan":
+    gan_name = mode
+    dir_1 = 'results/3-final_tests/'+gan_name+'/classical/' + directory + '/'
+    dir_2 = 'results/3-final_tests/'+gan_name+'/quantum/' + directory + '/'
+    if gan_name == 'e_vanilla_qaaan':
+        file_name = '2-classical_vs_quantum_vanilla_qaaan'
+        column_titles = ["Classical Vanilla QAAAN", "Quantum Vanilla QAAAN"]
+    elif gan_name == 'f_mmd_qaaan':
+        file_name = '3-classical_vs_quantum_mmd_qaaan'
+        column_titles = ["Classical MMD QAAAN", "Quantum MMD QAAAN"]
+elif mode == "gan":
+    dir_1 = 'results/3-final_tests/a_vanilla_gan_1d/' + directory + '/'
+    dir_2 = 'results/3-final_tests/e_vanilla_qaaan/quantum/' + directory + '/'
     file_name = '1-vanilla_vs_mmd_gan'
+    column_titles = ["Vanilla GAN", "MMD GAN"]
+elif mode == "gan_vs_qaaan_vanilla":
+    dir_1 = 'results/3-final_tests/a_vanilla_gan_1d/2-epochs=900/' + directory + '/'
+    dir_2 = 'results/3-final_tests/e_vanilla_qaaan/quantum/' + directory + '/'
+    save_dir = 'results/4-table_plots/'
+    file_name = '4-vanilla_gan_vs_qaaan'
+    column_titles = ["Vanilla GAN", "Vanilla QAAAN"]
+elif mode == "gan_vs_qaaan_mmd":
+    dir_1 = 'results/3-final_tests/b_mmd_gan_1d/2-epochs=900/' + directory + '/'
+    dir_2 = 'results/3-final_tests/f_mmd_qaaan/quantum/' + directory + '/'
+    save_dir = 'results/4-table_plots/'
+    file_name = '5-mmd_gan_vs_qaaan'
+    column_titles = ["MMD GAN", "MMD QAAAN"]
 
 
 # Define the subdirectories for the different distributions
@@ -30,16 +47,16 @@ distributions = ['uniform', 'gaussian', 'cauchy', 'pareto']
 fig, axs = plt.subplots(len(distributions), 2, figsize=(10, len(distributions)*5))
 
 # Set the column titles
-axs[0, 0].set_title('Classical MMD QAAAN', fontsize=12)
-axs[0, 1].set_title('Quantum MMD QAAAN', fontsize=12)
+axs[0, 0].set_title(column_titles[0], fontsize=12)
+axs[0, 1].set_title(column_titles[1], fontsize=12)
 
 latex_table_rows = []
 
 # Iterate over the distributions
 for i, dist in enumerate(distributions):
     # Get the list of subdirectories in the distribution directory for Vanilla GAN and MMD GAN
-    vanilla_gan_subdirs = next(os.walk(os.path.join(vanilla_gan_dir, dist)))[1]
-    mmd_gan_subdirs = next(os.walk(os.path.join(mmd_gan_dir, dist)))[1]
+    vanilla_gan_subdirs = next(os.walk(os.path.join(dir_1, dist)))[1]
+    mmd_gan_subdirs = next(os.walk(os.path.join(dir_2, dist)))[1]
     
     # Find the subdirectory that starts with the distribution name
     vanilla_gan_subdir = next((s for s in vanilla_gan_subdirs if s.startswith(dist)), None)
@@ -48,8 +65,8 @@ for i, dist in enumerate(distributions):
     # If we found the subdirectories
     if vanilla_gan_subdir is not None and mmd_gan_subdir is not None:
         # Create the filepaths for the Vanilla GAN and MMD GAN
-        vanilla_gan_filepath = os.path.join(vanilla_gan_dir, dist, vanilla_gan_subdir, image_name)
-        mmd_gan_filepath = os.path.join(mmd_gan_dir, dist, mmd_gan_subdir, image_name)
+        vanilla_gan_filepath = os.path.join(dir_1, dist, vanilla_gan_subdir, image_name)
+        mmd_gan_filepath = os.path.join(dir_2, dist, mmd_gan_subdir, image_name)
 
         # Read the images with PIL's Image.open for more manipulation options
         vanilla_gan_img = Image.open(vanilla_gan_filepath)
@@ -87,8 +104,8 @@ for i, dist in enumerate(distributions):
 
         ### Wasserstein Distances table creation
         # Create the filepaths for the parameters.json files
-        vanilla_gan_params_filepath = os.path.join(vanilla_gan_dir, dist, vanilla_gan_subdir, "parameters.json")
-        mmd_gan_params_filepath = os.path.join(mmd_gan_dir, dist, mmd_gan_subdir, "parameters.json")
+        vanilla_gan_params_filepath = os.path.join(dir_1, dist, vanilla_gan_subdir, "parameters.json")
+        mmd_gan_params_filepath = os.path.join(dir_2, dist, mmd_gan_subdir, "parameters.json")
 
         # Load the parameters.json files
         with open(vanilla_gan_params_filepath, 'r') as f:

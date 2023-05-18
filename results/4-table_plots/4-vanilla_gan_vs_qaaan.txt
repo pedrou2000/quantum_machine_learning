@@ -4,9 +4,9 @@
 \cline{2-3}
 Distribution & Vanilla GAN & MMD GAN \\
 \hline
-Uniform & 0.079 & 0.246 \\
-Gaussian & 0.062 & 0.186 \\
-Cauchy & 5.416 & 3.106 \\
-Pareto & 0.407 & 0.659 \\
+Uniform & 0.229 & 0.246 \\
+Gaussian & 0.098 & 0.186 \\
+Cauchy & 4.551 & 3.106 \\
+Pareto & 0.701 & 0.659 \\
 \hline
 \end{tabular}
