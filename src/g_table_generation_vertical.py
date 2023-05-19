@@ -10,7 +10,7 @@ import json
 directory = 'different_distributions'
 image_name = 'histogram_pdf.png'
 save_dir = 'results/4-table_plots/'
-mode = "gan_vs_qaaan_mmd"
+mode = "gan_vs_qaaan_vanilla"
 if mode == "e_vanilla_qaaan" or mode == "f_mmd_qaaan":
     gan_name = mode
     dir_1 = 'results/3-final_tests/'+gan_name+'/classical/' + directory + '/'
@@ -132,7 +132,7 @@ plt.savefig(save_dir+file_name+'.png', bbox_inches='tight', dpi=600)
 # Combine the rows into a string for the LaTeX table
 latex_table = "\\begin{tabular}{|c|c|c|}\n\\hline\n"
 latex_table += "& \multicolumn{2}{c|}{Wasserstein Distance} \\\\\n\\cline{2-3}\n"
-latex_table += "Distribution & Vanilla GAN & MMD GAN \\\\\n\\hline\n"
+latex_table += "Distribution & "+column_titles[0]+ " & "+ column_titles[1] + " \\\\\n\\hline\n"
 latex_table += "\n".join(latex_table_rows)
 latex_table += "\n\\hline\n\\end{tabular}"
 

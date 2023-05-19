@@ -2,7 +2,7 @@
 \hline
 & \multicolumn{2}{c|}{Wasserstein Distance} \\
 \cline{2-3}
-Distribution & Vanilla GAN & MMD GAN \\
+Distribution & Classical MMD QAAAN & Quantum MMD QAAAN \\
 \hline
 Uniform & 0.557 & 0.348 \\
 Gaussian & 1.264 & 0.571 \\

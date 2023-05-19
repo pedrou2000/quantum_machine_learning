@@ -1,5 +1,5 @@
 {
-    "wasserstein_distance": 0.229,
+    "wasserstein_distance": 0.271,
     "timestamp": "2023-05-16 12:29:50",
     "hyperparameters": {
         "training": {

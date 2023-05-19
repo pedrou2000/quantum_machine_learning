@@ -1,0 +1,12 @@
+\begin{tabular}{|c|c|c|}
+\hline
+& \multicolumn{2}{c|}{Wasserstein Distance} \\
+\cline{2-3}
+Distribution & Classical Vanilla QAAAN & Quantum Vanilla QAAAN \\
+\hline
+Uniform & 0.224 & 0.246 \\
+Gaussian & 0.203 & 0.186 \\
+Cauchy & 2.846 & 3.106 \\
+Pareto & 0.698 & 0.659 \\
+\hline
+\end{tabular}
