@@ -1,5 +1,5 @@
 # Quantum-Assisted Generative Models: A Comparative Study on Performance and Potential Improvements in GANs and BMs
-This ongoing thesis, serving as my Computer Science Bachelor's thesis, explores the potential benefits of employing quantum-assisted algorithms in 
+This thesis, serving as my Computer Science Bachelor's thesis, explores the potential benefits of employing quantum-assisted algorithms in 
 generative models, with a primary focus on Generative Adversarial Networks (GANs) and Boltzmann Machines (BMs). By comparing the performance of classical
 and quantum-assisted algorithms, we aim to obtain a deeper understanding of their respective strengths and limitations, paving the way for potential 
 improvements. The research began with an extensive literature review, identifying two main quantum-assisted generative algorithms employed in GANs and 
