@@ -45,6 +45,21 @@ Located in the root directory as `thesis.pdf`.
 `__init__.py`  
 - **Initialization File**: Serves as the initialization file for Python packages, enabling package-level variables and methods.
 
+## Dependencies
+
+This project relies on a wide range of Python libraries for tasks like machine learning, statistical analysis, data visualization, and quantum computing. The principal dependencies include:
+
+- `tensorflow` and `keras`: For machine learning models, particularly Generative Adversarial Networks and Restricted Boltzmann Machines.
+- `numpy`: For numerical computations and data manipulation.
+- `scipy`: Specifically employed for statistical functions like `wasserstein_distance` and statistical distributions such as `norm`, `uniform`, `cauchy`, `pareto`, and `beta`.
+- `matplotlib`: For generating plots and other data visualizations. `GridSpec` is also used for customizing the layout of multiple subplots.
+- `json` and `os`: For file handling and operating system related tasks.
+- `time`: For timing code execution for performance analysis.
+- `pyqubo`: For generating Binary Quadratic Models (BQM).
+- `dwave`: For solving optimization problems on the D-Wave quantum annealer.
+- `mnist` dataset from `tensorflow.keras.datasets`: For testing machine learning models on image data.
+
+
 
 ## Getting Started
 
@@ -56,15 +71,6 @@ git clone <repository_url>
 
 For setting up the environment and executing the code, please refer to the README within the `/src/` directory.
 
-## Dependencies
-
-The project relies on the following dependencies:
-
-- Python 3.x
-- NumPy
-- D-Wave Ocean SDK
-- TensorFlow or PyTorch
-- Additional libraries as required
 
 ## Contributing
 
