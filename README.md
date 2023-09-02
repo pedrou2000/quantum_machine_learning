@@ -107,7 +107,7 @@ I would like to extend my deepest appreciation to my thesis advisor, Dr. Jack Ja
 
 I am equally grateful to my second advisor, Alberto Suárez at the Autonomous University of Madrid, for his invaluable comments and insights on the thesis. His input has been a crucial component in ensuring the rigor and quality of this work.
 
-My sincere thanks also go to the Department of Mathematics at Imperial College London and the Escuela Politécnica Superior at the Autonomous University of Madrid for providing the resources and environment that have made this research possible.
+My sincere thanks also go to the Department of Mathematics at Imperial College London and the Escuela Politécnica Superior of the Autonomous University of Madrid for providing the resources and environment that have made this research possible.
 
 Finally, my gratitude extends to all those who have indirectly contributed to this project. This includes the developers and maintainers of the open-source tools and libraries that have been vital to this research.
 
