@@ -1,6 +1,7 @@
 # Quantum-Assisted Generative Algorithms
 ## Introduction
-This repository hosts the resources for my Bachelor's thesis in Computer Science, developed at the Department of Mathematics at Imperial College London and defended at the Escuela Politécnica Superior at the Autonomous University of Madrid. Its primary aim is to leverage the principles of quantum computing to enhance machine learning algorithms. While the immediate focus is on improving the learning of one-dimensional distributions using Generative Adversarial Networks (GANs) through Quantum-Assisted Associative Adversarial Networks (QAAANs), the broader goal is to explore the transformative possibilities that quantum computing brings to the machine learning landscape.
+This repository hosts the resources for my Bachelor's thesis in Computer Science. The research was conducted at the Department of Mathematics at Imperial College London and was defended at the Escuela Politécnica Superior of the Autonomous University of Madrid. The primary aim of this work is to leverage the principles of quantum computing to enhance machine learning algorithms. The immediate focus is on improving the learning of one-dimensional distributions using Generative Adversarial Networks (GANs) through a novel approach: Quantum-Assisted Associative Adversarial Networks (QAAANs). The broader goal is to explore the transformative possibilities that quantum computing brings to the machine learning landscape.
+
 
 
 ## Thesis Overview
