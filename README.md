@@ -63,13 +63,34 @@ This project relies on a wide range of Python libraries for tasks like machine l
 
 ## Getting Started
 
-To clone this repository, execute the following command in your terminal:
+### Initial Setup
+To get started, clone this repository to your local machine. It's advisable to have Python installed, preferably via an Anaconda distribution to ensure all dependencies are met. After cloning, navigate to the `src` directory where the main source code resides.
 
-```bash
-git clone <repository_url>
-```
+### Configuration and Running the Code
+The code is designed to be flexible with both hyperparameters and distribution parameters. You can adjust hyperparameters by modifying the variable values in the main function or use an alternative `main` function specifically for hyperparameter testing. Additionally, you can specify the probability distribution to be learned and its corresponding parameters.
 
-For setting up the environment and executing the code, please refer to the README within the `/src/` directory.
+#### Classical Models
+To run classical models like Vanilla GAN, MMD GAN, or Classical RBM, execute the respective Python files:
+- `a_vanilla_gan_1d.py`
+- `b_mmd_gan_1d.py`
+- `c_classical_rbm.py`
+
+#### Quantum Models
+For models that require interaction with a quantum computer, such as:
+- `d_quantum_rbm.py`
+- `e_vanilla_qaaan.py`
+- `f_mmd_qaaan.py`
+
+You'll need to configure access to Leap’s solvers. Detailed instructions can be found at the [D-Wave Leap documentation](https://docs.ocean.dwavesys.com/en/stable/overview/sapi.html#create-a-configuration-file).
+
+### Backtesting and Results
+To reproduce the experimental results, or to perform your own tests, execute the table generation scripts:
+- `g_table_generation_vertical.py`
+- `h_table_generation_horizontal.py`
+
+### Further Documentation
+If you encounter any issues or seek deeper insights into the project, please refer to the accompanying thesis, available in this repository as `thesis.pdf`. This comprehensive document elaborates on the theoretical framework and empirical results.
+
 
 
 ## Contributing
@@ -84,6 +105,14 @@ If you wish to contribute to this project, please:
 
 You can also open an issue to discuss what you would like to add or modify in the project.
 
-## Acknowledgments
+## Acknowledgements
 
-Heartfelt thanks to my advisors and everyone who contributed to the open-source packages utilized in this research.
+I would like to extend my deepest appreciation to my thesis advisor, Dr. Jack Jacquier, of the Department of Mathematics at Imperial College London. His unwavering support, expert guidance, and constructive criticism have been instrumental in shaping this research from its inception to completion.
+
+I am equally grateful to my second advisor, Alberto Suárez at the Autonomous University of Madrid, for his invaluable comments and insights on the thesis. His input has been a crucial component in ensuring the rigor and quality of this work.
+
+My sincere thanks also go to the Department of Mathematics at Imperial College London and the Escuela Politécnica Superior at the Autonomous University of Madrid for providing the resources and environment that have made this research possible.
+
+Finally, my gratitude extends to all those who have indirectly contributed to this project. This includes the developers and maintainers of the open-source tools and libraries that have been vital to this research.
+
+
