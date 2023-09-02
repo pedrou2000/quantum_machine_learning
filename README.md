@@ -67,7 +67,7 @@ This project relies on a wide range of Python libraries for tasks like machine l
 To get started, clone this repository to your local machine. It's advisable to have Python installed, preferably via an Anaconda distribution to ensure all dependencies are met. After cloning, navigate to the `src` directory where the main source code resides.
 
 ### Configuration and Running the Code
-The code is designed to be flexible with both hyperparameters and distribution parameters. You can adjust hyperparameters by modifying the variable values in the main function or use an alternative `main` function specifically for hyperparameter testing. Additionally, you can specify the probability distribution to be learned and its corresponding parameters.
+The code is designed to be flexible with both hyperparameters and distribution parameters. You can adjust the model hyperparameters by modifying the corresponding hyperparameter dictionary in the main function for each script. Additionally, you can specify the probability distribution to be learned and its corresponding parameters. You can also use the alternative `main` functions specifically designed for hyperparameter testing and testing different probability distributions in the same run.
 
 #### Classical Models
 To run classical models like Vanilla GAN, MMD GAN, or Classical RBM, execute the respective Python files:
@@ -82,11 +82,6 @@ For models that require interaction with a quantum computer, such as:
 - `f_mmd_qaaan.py`
 
 You'll need to configure access to Leap’s solvers. Detailed instructions can be found at the [D-Wave Leap documentation](https://docs.ocean.dwavesys.com/en/stable/overview/sapi.html#create-a-configuration-file).
-
-### Backtesting and Results
-To reproduce the experimental results, or to perform your own tests, execute the table generation scripts:
-- `g_table_generation_vertical.py`
-- `h_table_generation_horizontal.py`
 
 ### Further Documentation
 If you encounter any issues or seek deeper insights into the project, please refer to the accompanying thesis, available in this repository as `thesis.pdf`. This comprehensive document elaborates on the theoretical framework and empirical results.
