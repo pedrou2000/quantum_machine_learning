@@ -1,6 +1,6 @@
 # Quantum-Assisted Generative Algorithms
 ## Introduction
-This repository hosts the resources for my Computer Science thesis, which primarily aims to leverage the principles of quantum computing to enhance machine learning algorithms. While the immediate focus is on improving the learning of one-dimensional distributions using Generative Adversarial Networks (GANs) through Quantum-Assisted Associative Adversarial Networks (QAAANs), the broader goal is to explore the transformative possibilities that quantum computing brings to the machine learning landscape.
+This repository hosts the resources for my Bachelor's thesis in Computer Science, which primarily aims to leverage the principles of quantum computing to enhance machine learning algorithms. While the immediate focus is on improving the learning of one-dimensional distributions using Generative Adversarial Networks (GANs) through Quantum-Assisted Associative Adversarial Networks (QAAANs), the broader goal is to explore the transformative possibilities that quantum computing brings to the machine learning landscape.
 
 
 ## Thesis Overview
